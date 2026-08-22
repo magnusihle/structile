@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://structile.dev/schemas/agent-result.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status","changedPaths","commits","commands","claims","risks","unresolvedQuestions","requestedApprovals","usage"],
+  "properties": {
+    "status": {"enum":["completed","blocked","needs-human","failed"]},
+    "changedPaths": {"type":"array","uniqueItems":true,"items":{"type":"string"}},
+    "commits": {"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-f0-9]{40,64}$"}},
+    "commands": {
+      "type":"array",
+      "items": {
+        "type":"object",
+        "additionalProperties":false,
+        "required":["program","args","exitCode"],
+        "properties": {
+          "program":{"type":"string","minLength":1},
+          "args":{"type":"array","items":{"type":"string"}},
+          "exitCode":{"type":"integer"},
+          "artifactHashes":{"type":"array","items":{"type":"string","pattern":"^[a-f0-9]{64}$"}}
+        }
+      }
+    },
+    "claims": {
+      "type":"array",
+      "items": {
+        "type":"object",
+        "additionalProperties":false,
+        "required":["requirementId","summary"],
+        "properties": {
+          "requirementId":{"type":"string","pattern":"^[A-Z][A-Z0-9]*-[0-9]{3}$"},
+          "summary":{"type":"string"}
+        }
+      }
+    },
+    "risks":{"type":"array","items":{"type":"string"}},
+    "unresolvedQuestions":{"type":"array","items":{"type":"string"}},
+    "requestedApprovals":{"type":"array","items":{"type":"string"}},
+    "usage": {
+      "type":"object",
+      "additionalProperties":false,
+      "required":["durationMs"],
+      "properties": {
+        "durationMs":{"type":"integer","minimum":0},
+        "inputTokens":{"type":"integer","minimum":0},
+        "cachedInputTokens":{"type":"integer","minimum":0},
+        "outputTokens":{"type":"integer","minimum":0},
+        "estimatedCostUsd":{"type":"number","minimum":0}
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0.0",
+  "mode": "reject-candidate-diff",
+  "paths": [
+    "requirements/**",
+    "verification/test-catalog.json",
+    "verification/evidence.schema.json",
+    "verification/fixtures/**",
+    "verification/goldens/**",
+    "verification/thresholds/**",
+    "requirements/waivers.json",
+    ".github/CODEOWNERS",
+    ".github/rulesets/**",
+    ".github/workflows/release-signing*.yml",
+    "policies/agent/**"
+  ],
+  "bootstrapException": {
+    "gate": "G0",
+    "paths": ["policies/agent/**"],
+    "expiresWhen": "human-approved-baseline-is-applied"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "structile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The declarative application chassis for SaaS.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "packageManager": "npm@11.17.0",
+  "engines": {
+    "node": ">=24.19.0 <25",
+    "npm": ">=11 <13"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "check": "npm run planning:check && npm run language:check && npm run build && npm run typecheck:authored && npm test && npm run compose:config",
+    "compose:config": "STRUCTILE_DEV_POSTGRES_PASSWORD_FILE=/dev/null docker compose config --quiet",
+    "compose:down": "docker compose down --volumes --remove-orphans",
+    "language:check": "node scripts/validate-language-policy.ts",
+    "planning:check": "node --test tooling/test/*.test.mjs && node tooling/validate-planning.mjs",
+    "test": "node --test test/*.test.ts packages/*/test/*.test.ts",
+    "typecheck:authored": "tsc -p tsconfig.authored.json"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.13",
+    "@types/react": "19.2.18",
+    "react": "19.2.8",
+    "typescript": "7.0.2"
+  }
+}
