@@ -1,0 +1,72 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { CodexAdapter, ClaudeCodeAdapter, DeterministicMockAdapter } from "../dist/index.js";
+
+const request = {
+  taskId: "task:g0:0001",
+  requirementIds: ["HAR-001", "HAR-002"],
+  requirementDigest: `sha256:${"a".repeat(64)}`,
+  testDigest: `sha256:${"b".repeat(64)}`,
+  repository: "https://github.com/magnusihle/structile",
+  baseCommit: "c".repeat(40),
+  branch: "g0/test",
+  allowedPaths: ["packages/agent-harness/**"],
+  allowedTools: ["git", "node"],
+  networkDestinations: ["api.openai.com"],
+  budget: { timeoutMs: 60_000, maxOutputBytes: 65_536 },
+  prompt: "Exercise the deterministic adapter contract."
+};
+const context = {
+  workspace: "/workspace",
+  resultSchemaPath: "/policy/agent-result.schema.json",
+  resultPath: "/tmp/result.json",
+  environment: { PATH: "/usr/bin", CODEX_API_KEY: "canary-not-returned" }
+};
+
+test("Codex adapter uses explicit non-interactive sandboxed arguments without a shell", async () => {
+  let captured;
+  const expected = {
+    status: "completed", changedPaths: [], commits: [], commands: [], claims: [], risks: [],
+    unresolvedQuestions: [], requestedApprovals: [], usage: { durationMs: 1 }
+  };
+  const transport = { run: async (invocation) => { captured = invocation; return { exitCode: 0, stdout: JSON.stringify(expected), stderr: "" }; } };
+  const adapter = new CodexAdapter(transport);
+  assert.deepEqual(await adapter.execute(request, context), expected);
+  assert.equal(captured.program, "codex");
+  assert.equal(captured.args[0], "exec");
+  assert.ok(captured.args.includes("--ephemeral"));
+  assert.ok(captured.args.includes("workspace-write"));
+  assert.ok(captured.args.includes("--output-schema"));
+  assert.ok(!captured.args.includes("danger-full-access"));
+  assert.equal(captured.environment.CODEX_API_KEY, "canary-not-returned");
+  assert.doesNotMatch(JSON.stringify(expected), /canary-not-returned/);
+});
+
+test("Claude contract can remain behind the deterministic mock transport", async () => {
+  const mock = new DeterministicMockAdapter("claude-code");
+  const adapter = new ClaudeCodeAdapter({ execute: (task, execution) => mock.execute(task, execution) });
+  const first = await adapter.execute(request, context);
+  const second = await adapter.execute(request, context);
+  assert.deepEqual(first, second);
+  assert.equal(first.status, "completed");
+  assert.equal(first.changedPaths.length, 0);
+});
+
+test("Codex and Claude deterministic envelopes normalize identically", async () => {
+  const codex = await new DeterministicMockAdapter("codex").execute(request, context);
+  const claude = await new DeterministicMockAdapter("claude-code").execute(request, context);
+  assert.deepEqual(Object.keys(codex).sort(), Object.keys(claude).sort());
+  assert.deepEqual(codex.claims, claude.claims);
+});
+
+test("both operational contracts reject results outside path and tool budgets", async () => {
+  const outside = {
+    status: "completed", changedPaths: ["requirements/requirements.json"], commits: [],
+    commands: [{ program: "curl", args: [], exitCode: 0 }], claims: [], risks: [],
+    unresolvedQuestions: [], requestedApprovals: [], usage: { durationMs: 1 }
+  };
+  const codex = new CodexAdapter({ run: async () => ({ exitCode: 0, stdout: JSON.stringify(outside), stderr: "" }) });
+  await assert.rejects(codex.execute(request, context), /outside its budget/);
+  const claude = new ClaudeCodeAdapter({ execute: async () => outside });
+  await assert.rejects(claude.execute(request, context), /outside its budget/);
+});

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0.0",
+  "defaultEgress": "deny",
+  "dns": "proxy-resolved-only",
+  "roles": {
+    "builder": {
+      "destinations": [
+        {"scheme":"https","host":"github.com","paths":["/magnusihle/structile*","/magnusihle/structile-northstar*"]},
+        {"scheme":"https","host":"api.github.com","paths":["/repos/magnusihle/structile*","/repos/magnusihle/structile-northstar*"]},
+        {"scheme":"https","host":"registry.npmjs.org","paths":["/**"]},
+        {"scheme":"https","host":"registry-1.docker.io","paths":["/v2/library/**"]},
+        {"scheme":"https","host":"auth.docker.io","paths":["/token"]},
+        {"scheme":"https","host":"api.openai.com","paths":["/v1/responses"]},
+        {"scheme":"https","host":"api.anthropic.com","paths":["/v1/messages"]}
+      ],
+      "tailscaleServices": []
+    },
+    "verifier": {
+      "destinations": [
+        {"scheme":"https","host":"github.com","paths":["/magnusihle/structile*","/magnusihle/structile-conformance*"]},
+        {"scheme":"https","host":"api.github.com","paths":["/repos/magnusihle/structile*","/repos/magnusihle/structile-conformance*"]},
+        {"scheme":"https","host":"ghcr.io","paths":["/v2/magnusihle/structile-conformance/**"]}
+      ],
+      "tailscaleServices": []
+    },
+    "evidence-assembler": {
+      "destinations": [
+        {"scheme":"https","host":"api.github.com","paths":["/repos/magnusihle/structile*/actions/**","/repos/magnusihle/structile*/check-runs/**"]}
+      ],
+      "tailscaleServices": []
+    },
+    "researcher": {
+      "destinationClass": "approved-public-internet",
+      "repositoryWriteCredentials": false,
+      "secrets": false,
+      "tailscaleServices": []
+    }
+  },
+  "forbiddenDestinations": ["production-databases","customer-systems","cloud-metadata","infrastructure-admin","unapproved-model-endpoints"]
+}

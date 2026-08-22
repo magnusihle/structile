@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0.0",
+  "scope": "@structile",
+  "physicalConformanceRepository": "https://github.com/magnusihle/structile-conformance",
+  "packages": [
+    {"name":"@structile/tokens","path":"packages/tokens","introducedGate":"G1","responsibility":"Semantic design-token contracts"},
+    {"name":"@structile/primitives","path":"packages/primitives","introducedGate":"G1","responsibility":"Owned accessible UI primitives"},
+    {"name":"@structile/components","path":"packages/components","introducedGate":"G1","responsibility":"Approved reusable UI blocks"},
+    {"name":"@structile/catalog","path":"packages/catalog","introducedGate":"G1","responsibility":"Typed component registration metadata"},
+    {"name":"@structile/spec","path":"packages/spec","introducedGate":"G1","responsibility":"Declarative application specification contracts"},
+    {"name":"@structile/runtime","path":"packages/runtime","introducedGate":"G3","responsibility":"Catalog-only React rendering shell"},
+    {"name":"@structile/composer","path":"packages/composer","introducedGate":"G3","responsibility":"Manual draft and preview composition"},
+    {"name":"@structile/charts","path":"packages/charts","introducedGate":"G3","responsibility":"Restricted chart grammar"},
+    {"name":"@structile/i18n","path":"packages/i18n","introducedGate":"G4","responsibility":"Locale and translation helpers"},
+    {"name":"@structile/capability-sdk","path":"packages/capability-sdk","introducedGate":"G1","responsibility":"Language-neutral capability protocol"},
+    {"name":"@structile/auth","path":"packages/auth","introducedGate":"G2","responsibility":"Better Auth policy and authorization primitives"},
+    {"name":"@structile/control-plane","path":"packages/control-plane","introducedGate":"G2","responsibility":"Reference product-local control plane"},
+    {"name":"@structile/agent-harness","path":"packages/agent-harness","introducedGate":"G0","responsibility":"Normalized Claude Code and Codex development adapters"}
+  ],
+  "externalPackages": [
+    {"name":"@structile/conformance","repository":"https://github.com/magnusihle/structile-conformance","introducedGate":"G0"}
+  ],
+  "forbiddenCoreConcerns": [
+    "ERP-specific domain models",
+    "customs or declaration workflows",
+    "document parsing rules",
+    "accounting calculations",
+    "product integration credentials",
+    "tenant-provided executable code"
+  ]
+}

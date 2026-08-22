@@ -1,0 +1,1 @@
+{"name":"@structile/i18n","version":"0.1.0","private":true,"type":"module","description":"G0 boundary for locale and translation helpers","exports":"./dist/index.js","types":"./dist/index.d.ts","scripts":{"build":"tsc -p tsconfig.json"},"engines":{"node":">=24.19.0 <25"}}

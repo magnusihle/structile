@@ -1,0 +1,96 @@
+name: structile-foundation
+
+services:
+  foundation-health:
+    build:
+      context: .
+      dockerfile: Containerfile
+    init: true
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      STRUCTILE_POSTGRES_HOST: postgres
+      STRUCTILE_POSTGRES_PORT: "5432"
+      STRUCTILE_REDIS_HOST: redis
+      STRUCTILE_REDIS_PORT: "6379"
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks: [edge, data]
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 128M
+
+  postgres:
+    image: postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
+    restart: unless-stopped
+    read_only: true
+    cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      POSTGRES_DB: structile
+      POSTGRES_USER: structile
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    secrets: [postgres_password]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    tmpfs:
+      - /run/postgresql:size=16m,mode=0770,uid=70,gid=70
+      - /tmp:size=32m,mode=1777
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U structile -d structile"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+
+  redis:
+    image: redis:8.8.1-alpine@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb
+    restart: unless-stopped
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    command: ["redis-server", "--dir", "/tmp", "--save", "", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    networks: [data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 96M
+
+networks:
+  edge: {}
+  data:
+    internal: true
+
+volumes:
+  postgres_data: {}
+
+secrets:
+  postgres_password:
+    file: ${STRUCTILE_DEV_POSTGRES_PASSWORD_FILE:?Set STRUCTILE_DEV_POSTGRES_PASSWORD_FILE to a readable local secret file}

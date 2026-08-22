@@ -1,0 +1,1 @@
+{"name":"@structile/components","version":"0.1.0","private":true,"type":"module","description":"G0 boundary for approved reusable UI blocks","exports":"./dist/index.js","types":"./dist/index.d.ts","scripts":{"build":"tsc -p tsconfig.json"},"peerDependencies":{"react":"19.2.8"},"engines":{"node":">=24.19.0 <25"}}

@@ -1,0 +1,1 @@
+{"name":"@structile/capability-sdk","version":"0.1.0","private":true,"type":"module","description":"G0 boundary for the language-neutral capability protocol","exports":"./dist/index.js","types":"./dist/index.d.ts","scripts":{"build":"tsc -p tsconfig.json"},"engines":{"node":">=24.19.0 <25"}}

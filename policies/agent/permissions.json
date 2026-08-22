@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0.0",
+  "default": "deny",
+  "humanAuthority": "magnusihle",
+  "roles": {
+    "planner": {
+      "repository": "read",
+      "allowedActions": ["read-source","read-requirements","read-protected-tests","propose-plan"],
+      "deniedActions": ["write-source","write-protected","push","merge","deploy","approve-waiver","sign-evidence"]
+    },
+    "builder": {
+      "repository": "assigned-write",
+      "allowedActions": ["read-source","create-branch","write-allowed-path","commit","push-assigned-branch","open-pull-request","update-own-pull-request","run-tests"],
+      "deniedActions": ["push-default-branch","merge","deploy","write-protected","alter-rules","approve-waiver","sign-evidence","read-production-secret"]
+    },
+    "verifier": {
+      "repository": "read",
+      "allowedActions": ["read-candidate","run-protected-tests","write-isolated-artifact","submit-evidence"],
+      "deniedActions": ["fix-candidate","write-candidate","write-protected","merge","deploy","approve-waiver"]
+    },
+    "evidence-assembler": {
+      "repository": "metadata-read",
+      "allowedActions": ["read-ci-metadata","read-evidence","publish-status"],
+      "deniedActions": ["write-candidate","write-protected","interpret-model-claim-as-proof","merge","deploy"]
+    },
+    "researcher": {
+      "repository": "read-without-write-token",
+      "allowedActions": ["read-public-source","browse-approved-internet","write-research-artifact"],
+      "deniedActions": ["receive-repository-write-token","receive-secret","push","merge","deploy"]
+    }
+  }
+}
