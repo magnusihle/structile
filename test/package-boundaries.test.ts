@@ -4,7 +4,16 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const boundaries = JSON.parse(await readFile(resolve(root, "architecture/package-boundaries.json"), "utf8"));
+interface PackageBoundary {
+  name: string;
+  path: string;
+  introducedGate: string;
+}
+
+const boundaries = JSON.parse(await readFile(resolve(root, "architecture/package-boundaries.json"), "utf8")) as {
+  packages: PackageBoundary[];
+  externalPackages: Array<{ name: string }>;
+};
 const expected = [
   "@structile/tokens", "@structile/primitives", "@structile/components", "@structile/catalog",
   "@structile/spec", "@structile/runtime", "@structile/composer", "@structile/charts",

@@ -13,4 +13,6 @@ Structile is in a protected bootstrap phase. Discuss substantial changes before 
 
 Protected requirements, tests, goldens, thresholds, waivers, repository rules, release-signing workflows, and approved agent/network policies require a separate human-owned specification or governance change.
 
+All authored source, tests, and executable repository scripts must be TypeScript. Generated JavaScript build output is allowed, and the two protected planning `.mjs` inputs are the only named exceptions enforced by `npm run language:check`.
+
 Contributions use Developer Certificate of Origin sign-off (`git commit -s`). A code of conduct applies to all project spaces.

@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const readJson = async (path) => JSON.parse(await readFile(resolve(root, path), "utf8"));
+const readJson = async (path: string): Promise<any> => JSON.parse(await readFile(resolve(root, path), "utf8"));
 
 test("builder authority is branch and PR only", async () => {
   const policy = await readJson("policies/agent/permissions.json");

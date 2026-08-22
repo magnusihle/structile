@@ -1,6 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CodexAdapter, ClaudeCodeAdapter, DeterministicMockAdapter } from "../dist/index.js";
+import {
+  CodexAdapter,
+  ClaudeCodeAdapter,
+  DeterministicMockAdapter,
+  type AgentExecutionContext,
+  type AgentTaskRequest,
+  type AgentTaskResult,
+  type ProcessInvocation,
+  type ProcessTransport
+} from "../dist/index.js";
 
 const request = {
   taskId: "task:g0:0001",
@@ -15,30 +24,32 @@ const request = {
   networkDestinations: ["api.openai.com"],
   budget: { timeoutMs: 60_000, maxOutputBytes: 65_536 },
   prompt: "Exercise the deterministic adapter contract."
-};
+} satisfies AgentTaskRequest;
 const context = {
   workspace: "/workspace",
   resultSchemaPath: "/policy/agent-result.schema.json",
   resultPath: "/tmp/result.json",
   environment: { PATH: "/usr/bin", CODEX_API_KEY: "canary-not-returned" }
-};
+} satisfies AgentExecutionContext;
 
 test("Codex adapter uses explicit non-interactive sandboxed arguments without a shell", async () => {
-  let captured;
-  const expected = {
+  let captured: ProcessInvocation | undefined;
+  const expected: AgentTaskResult = {
     status: "completed", changedPaths: [], commits: [], commands: [], claims: [], risks: [],
     unresolvedQuestions: [], requestedApprovals: [], usage: { durationMs: 1 }
   };
-  const transport = { run: async (invocation) => { captured = invocation; return { exitCode: 0, stdout: JSON.stringify(expected), stderr: "" }; } };
+  const transport: ProcessTransport = { run: async (invocation) => { captured = invocation; return { exitCode: 0, stdout: JSON.stringify(expected), stderr: "" }; } };
   const adapter = new CodexAdapter(transport);
   assert.deepEqual(await adapter.execute(request, context), expected);
-  assert.equal(captured.program, "codex");
-  assert.equal(captured.args[0], "exec");
-  assert.ok(captured.args.includes("--ephemeral"));
-  assert.ok(captured.args.includes("workspace-write"));
-  assert.ok(captured.args.includes("--output-schema"));
-  assert.ok(!captured.args.includes("danger-full-access"));
-  assert.equal(captured.environment.CODEX_API_KEY, "canary-not-returned");
+  assert.ok(captured);
+  const invocation = captured as ProcessInvocation;
+  assert.equal(invocation.program, "codex");
+  assert.equal(invocation.args[0], "exec");
+  assert.ok(invocation.args.includes("--ephemeral"));
+  assert.ok(invocation.args.includes("workspace-write"));
+  assert.ok(invocation.args.includes("--output-schema"));
+  assert.ok(!invocation.args.includes("danger-full-access"));
+  assert.equal(invocation.environment.CODEX_API_KEY, "canary-not-returned");
   assert.doesNotMatch(JSON.stringify(expected), /canary-not-returned/);
 });
 
@@ -60,7 +71,7 @@ test("Codex and Claude deterministic envelopes normalize identically", async () 
 });
 
 test("both operational contracts reject results outside path and tool budgets", async () => {
-  const outside = {
+  const outside: AgentTaskResult = {
     status: "completed", changedPaths: ["requirements/requirements.json"], commits: [],
     commands: [{ program: "curl", args: [], exitCode: 0 }], claims: [], risks: [],
     unresolvedQuestions: [], requestedApprovals: [], usage: { durationMs: 1 }
