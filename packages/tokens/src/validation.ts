@@ -78,6 +78,9 @@ function checkBounds(id: string, value: string, violations: string[]): void {
   for (const [selector, minimum, maximum, unit] of NUMERIC_BOUNDS) {
     if (!selector.test(id)) continue;
     const magnitude = Number.parseFloat(value);
+    // Unreachable today: every token with a NUMERIC_BOUNDS entry also has a grammar that
+    // guarantees a parseable number, so mutation testing reports this as an equivalent
+    // mutant. Kept as defence for a future bounded token added without a grammar.
     if (!Number.isFinite(magnitude)) { violations.push(`${id}: value must be numeric`); return; }
     const normalised = value.endsWith("rem") ? magnitude * 16 : magnitude;
     if (normalised < minimum || normalised > maximum) {
@@ -118,6 +121,12 @@ function scanValue(id: string, value: unknown, violations: string[]): void {
   checkBounds(id, value, violations);
 }
 
+/**
+ * Duplicated per package on purpose. `architecture/package-boundaries.json` fixes the
+ * thirteen package names and ARCH-001 asserts that exact list, so there is no shared
+ * utility package to host this; importing it across packages would add dependency edges
+ * between contract packages to save three lines. Keep the implementations identical.
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

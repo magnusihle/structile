@@ -174,6 +174,42 @@ test("numeric token values are bounded, not merely well-formed", () => {
   validateTheme(withToken(defaultLightTheme, "motion.easing.standard", "cubic-bezier(0.2, 0, 0, 1)"));
 });
 
+test("token values must be strings within the length bound", () => {
+  // Probe a free-form token. A colour token's #rrggbb grammar would reject an empty or
+  // over-long value on its own, masking the length check entirely.
+  const anyToken = TOKEN_IDS.find((id) => id.startsWith("elevation.")) as TokenId;
+  assert.ok(anyToken, "a free-form token is required to exercise the length bound directly");
+  for (const bad of [42, null, true, {}, []]) {
+    assert.throws(() => validateTheme(withToken(defaultLightTheme, anyToken, bad as unknown as string)),
+      TokenContractError, `accepted a ${typeof bad} token value`);
+  }
+  assert.throws(() => validateTheme(withToken(defaultLightTheme, anyToken, "")), TokenContractError, "accepted an empty value");
+  assert.throws(() => validateTheme(withToken(defaultLightTheme, anyToken, "a".repeat(201))), TokenContractError, "accepted an over-long value");
+});
+
+test("the tokens map itself must be an object, on both validation paths", () => {
+  for (const tokens of ["x", 42, null, []]) {
+    assert.throws(() => validateTheme({ ...defaultLightTheme, tokens }), TokenContractError,
+      `validateTheme accepted tokens: ${typeof tokens}`);
+    assert.throws(() => validateThemeOverride({ scope: "product", tokens }), TokenContractError,
+      `validateThemeOverride accepted tokens: ${typeof tokens}`);
+  }
+});
+
+test("overrides reject unknown token ids in every scope", () => {
+  for (const scope of ["product", "tenant"]) {
+    assert.throws(() => validateThemeOverride({ scope, tokens: { "made.up.token": "#123456" } }),
+      TokenContractError, `${scope} accepted an unknown token id`);
+  }
+});
+
+test("tokenCategory rejects anything that is not a registered token", () => {
+  assert.equal(tokenCategory("color.text.primary"), "color");
+  for (const bad of [undefined, null, 42, "not.a.token", ""]) {
+    assert.throws(() => tokenCategory(bad as unknown as TokenId), TokenContractError, `accepted ${String(bad)}`);
+  }
+});
+
 test("the published schemas match the contract", async () => {
   const theme = JSON.parse(await readFile(resolve(root, "schemas/theme.schema.json"), "utf8"));
   assert.deepEqual(Object.keys(theme.properties.tokens.properties).sort(), [...TOKEN_IDS].sort());

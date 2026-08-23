@@ -1,3 +1,5 @@
+import { TokenContractError } from "./errors.js";
+
 /**
  * Semantic design-token contract (DS-001).
  *
@@ -74,6 +76,9 @@ export function isTokenId(value: string): value is TokenId {
 }
 
 export function tokenCategory(id: TokenId): TokenCategory {
+  if (typeof id !== "string" || !TOKEN_ID_SET.has(id)) {
+    throw new TokenContractError([`unknown token ${String(id)}`]);
+  }
   return id.slice(0, id.indexOf(".")) as TokenCategory;
 }
 
