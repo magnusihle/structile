@@ -41,7 +41,9 @@ test("all canonical core package boundaries exist exactly once", async () => {
  * Packages implemented so far. The G0 placeholder assertion below narrows as each gate
  * lands; a package may only leave this list when its contract is actually implemented.
  */
-const implemented = new Set(["@structile/agent-harness", "@structile/tokens"]);
+const implemented = new Set([
+  "@structile/agent-harness", "@structile/tokens", "@structile/catalog", "@structile/spec"
+]);
 
 test("packages awaiting their gate contain only explicit boundary exports", async () => {
   for (const entry of boundaries.packages.filter((item) => !implemented.has(item.name))) {
