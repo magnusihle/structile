@@ -107,6 +107,47 @@ test("contrast maths matches known WCAG reference values", () => {
   assert.throws(() => contrastRatio("red", "#ffffff"), TokenContractError);
 });
 
+test("the validator agrees with the schema's additionalProperties: false", () => {
+  assert.throws(() => validateTheme({ ...defaultLightTheme, evil: 1 }), TokenContractError);
+  assert.throws(() => validateThemeOverride({ scope: "product", tokens: {}, evil: 1 }), TokenContractError);
+});
+
+test("typography grammar is per role, not per category", () => {
+  const bad: Array<[TokenId, string]> = [
+    ["typography.body.size", "Inter"],
+    ["typography.family.sans", "600"],
+    ["typography.heading.weight", "14px"],
+    ["typography.caption.lineHeight", "Inter"]
+  ];
+  for (const [id, value] of bad) {
+    assert.throws(() => validateTheme(withToken(defaultLightTheme, id, value)), TokenContractError, `${id} accepted ${value}`);
+  }
+  validateTheme(withToken(defaultLightTheme, "typography.body.lineHeight", "1.5"));
+  validateTheme(withToken(defaultLightTheme, "typography.heading.weight", "700"));
+});
+
+test("validation returns a detached, frozen result", () => {
+  const input = JSON.parse(JSON.stringify(defaultLightTheme));
+  const validated = validateTheme(input);
+  assert.notEqual(validated, input, "must not alias the untrusted input");
+  assert.ok(Object.isFrozen(validated) && Object.isFrozen(validated.tokens));
+  input.tokens["color.text.primary"] = "#ffffff";
+  assert.equal(validated.tokens["color.text.primary"], defaultLightTheme.tokens["color.text.primary"],
+    "mutating the input must not change the validated theme");
+});
+
+test("the contract surface cannot be mutated by a consumer", () => {
+  assert.ok(Object.isFrozen(contrastRequirements));
+  for (const requirement of contrastRequirements) assert.ok(Object.isFrozen(requirement), `${requirement.foreground} entry is mutable`);
+  assert.ok(Object.isFrozen(defaultLightTheme.tokens) && Object.isFrozen(defaultDarkTheme.tokens));
+});
+
+test("contrast helpers reject bad input with a typed error, not a TypeError", () => {
+  for (const bad of [undefined, null, 42, {}, "not-a-colour"]) {
+    assert.throws(() => contrastRatio(bad as unknown as string, "#ffffff"), TokenContractError, `accepted ${String(bad)}`);
+  }
+});
+
 test("the published schemas match the contract", async () => {
   const theme = JSON.parse(await readFile(resolve(root, "schemas/theme.schema.json"), "utf8"));
   assert.deepEqual(Object.keys(theme.properties.tokens.properties).sort(), [...TOKEN_IDS].sort());

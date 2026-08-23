@@ -93,7 +93,8 @@ export const defaultDarkTheme: Theme = Object.freeze({
  * The protected DS-001 suite owns the numeric minimums (4.5:1 body, 3:1 large and UI);
  * this list only declares which pairs exist so none can be quietly omitted.
  */
-export const contrastRequirements: readonly ContrastRequirement[] = Object.freeze([
+// A frozen array whose members are mutable is not a contract, so each entry is frozen too.
+export const contrastRequirements: readonly ContrastRequirement[] = Object.freeze(([
   { foreground: "color.text.primary", background: "color.surface.default", level: "body" },
   { foreground: "color.text.primary", background: "color.surface.raised", level: "body" },
   { foreground: "color.text.primary", background: "color.surface.sunken", level: "body" },
@@ -113,4 +114,4 @@ export const contrastRequirements: readonly ContrastRequirement[] = Object.freez
   { foreground: "color.status.danger", background: "color.surface.default", level: "body" },
   { foreground: "color.status.info", background: "color.surface.default", level: "body" },
   { foreground: "color.brand.logo", background: "color.surface.default", level: "ui" }
-] as const);
+] as const).map((entry) => Object.freeze(entry)));

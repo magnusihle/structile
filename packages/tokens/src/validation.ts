@@ -36,12 +36,23 @@ const MAX_VALUE_LENGTH = 200;
  */
 const CATEGORY_GRAMMAR: Readonly<Record<TokenCategory, RegExp | null>> = Object.freeze({
   color: /^#[0-9a-f]{6}$/i,
-  typography: /^(?:[A-Za-z][A-Za-z0-9 -]*(?:,\s*[A-Za-z][A-Za-z0-9 -]*)*|\d+(?:\.\d+)?(?:px|rem)?|[1-9]00)$/,
+  typography: null,
   spacing: /^\d+(?:\.\d+)?(?:px|rem)$/,
   elevation: null,
   motion: /^(?:\d+ms|cubic-bezier\([\d.,\s]+\))$/,
   density: /^\d+(?:\.\d+)?$/
 });
+
+/**
+ * Typography values differ by role, so a single per-category grammar would accept a font
+ * name where a size belongs. Roles are matched before the category fallback.
+ */
+const ROLE_GRAMMAR: ReadonlyArray<readonly [RegExp, RegExp, string]> = Object.freeze([
+  [/^typography\.family\./, /^[A-Za-z][A-Za-z0-9 -]*(?:,\s*[A-Za-z][A-Za-z0-9 -]*)*$/, "font stack"],
+  [/^typography\..*\.size$/, /^\d+(?:\.\d+)?(?:px|rem)$/, "length"],
+  [/^typography\..*\.lineHeight$/, /^(?:\d+(?:\.\d+)?(?:px|rem)|\d+(?:\.\d+)?)$/, "length or unitless ratio"],
+  [/^typography\..*\.weight$/, /^[1-9]00$/, "100..900 in hundreds"]
+] as const);
 
 function scanValue(id: string, value: unknown, violations: string[]): void {
   if (typeof value !== "string") {
@@ -59,6 +70,12 @@ function scanValue(id: string, value: unknown, violations: string[]): void {
     }
   }
   if (!isTokenId(id)) return;
+  for (const [selector, grammar, label] of ROLE_GRAMMAR) {
+    if (selector.test(id)) {
+      if (!grammar.test(value)) violations.push(`${id}: value must be a ${label}`);
+      return;
+    }
+  }
   const grammar = CATEGORY_GRAMMAR[tokenCategory(id)];
   if (grammar !== null && !grammar.test(value)) {
     violations.push(`${id}: value does not match the ${tokenCategory(id)} grammar`);
@@ -70,9 +87,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** Validate a complete theme. Every contract token must be present exactly once. */
+const THEME_KEYS: readonly string[] = Object.freeze(["version", "mode", "tokens"]);
+const OVERRIDE_KEYS: readonly string[] = Object.freeze(["scope", "mode", "tokens"]);
+
+/** The published schemas set additionalProperties:false; the validator must agree. */
+function rejectUnknownKeys(value: Record<string, unknown>, allowed: readonly string[], violations: string[]): void {
+  for (const key of Object.keys(value)) {
+    if (!allowed.includes(key)) violations.push(`unknown property ${key}`);
+  }
+}
+
 export function validateTheme(value: unknown): Theme {
   const violations: string[] = [];
   if (!isRecord(value)) throw new TokenContractError(["theme must be an object"]);
+  rejectUnknownKeys(value, THEME_KEYS, violations);
 
   const mode = value.mode;
   if (typeof mode !== "string" || !MODES.includes(mode as ThemeMode)) {
@@ -99,7 +127,13 @@ export function validateTheme(value: unknown): Theme {
   }
 
   if (violations.length > 0) throw new TokenContractError(violations);
-  return value as unknown as Theme;
+  // Detached and frozen: a validated theme must not alias the untrusted input, which a
+  // caller could still hold and mutate after validation.
+  return Object.freeze({
+    version: Object.freeze({ ...(value.version as Record<string, number>) }),
+    mode: value.mode as ThemeMode,
+    tokens: Object.freeze({ ...(value.tokens as Record<string, string>) })
+  }) as unknown as Theme;
 }
 
 /** Validate a scoped override. Scope decides which tokens may be touched at all. */
@@ -107,9 +141,10 @@ export function validateThemeOverride(value: unknown): ThemeOverride {
   const violations: string[] = [];
   if (!isRecord(value)) throw new TokenContractError(["override must be an object"]);
 
+  rejectUnknownKeys(value, OVERRIDE_KEYS, violations);
   const scope = value.scope;
   if (typeof scope !== "string" || !THEME_SCOPES.includes(scope as ThemeScope)) {
-    throw new TokenContractError([`scope must be one of ${THEME_SCOPES.join(", ")}`]);
+    throw new TokenContractError([`scope must be one of ${THEME_SCOPES.join(", ")}`, ...violations]);
   }
 
   if (value.mode !== undefined) {
@@ -136,5 +171,7 @@ export function validateThemeOverride(value: unknown): ThemeOverride {
   }
 
   if (violations.length > 0) throw new TokenContractError(violations);
-  return value as unknown as ThemeOverride;
+  const detached: Record<string, unknown> = { scope, tokens: Object.freeze({ ...(isRecord(tokens) ? tokens : {}) }) };
+  if (value.mode !== undefined) detached.mode = value.mode;
+  return Object.freeze(detached) as unknown as ThemeOverride;
 }

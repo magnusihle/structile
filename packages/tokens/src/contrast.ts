@@ -9,9 +9,14 @@ function channel(hex: string, offset: number): number {
 
 /** WCAG 2.2 relative luminance for an sRGB colour. */
 export function relativeLuminance(color: string): number {
-  const match = SRGB_HEX.exec(color.trim());
-  if (!match) throw new TokenContractError([`colour must be #rrggbb sRGB, received ${color}`]);
-  const value = color.trim().slice(1);
+  // Typed rejection, never a raw TypeError: a caller must be able to tell a contract
+  // violation from a crash, which means validating before touching the value.
+  if (typeof color !== "string") {
+    throw new TokenContractError([`colour must be a string, received ${typeof color}`]);
+  }
+  const trimmed = color.trim();
+  if (!SRGB_HEX.test(trimmed)) throw new TokenContractError([`colour must be #rrggbb sRGB, received ${color}`]);
+  const value = trimmed.slice(1);
   return 0.2126 * channel(value, 0) + 0.7152 * channel(value, 2) + 0.0722 * channel(value, 4);
 }
 
