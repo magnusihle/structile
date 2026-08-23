@@ -21,6 +21,11 @@ const expected = [
   "@structile/agent-harness"
 ];
 
+test("implemented packages are a subset of the declared boundaries", () => {
+  const declared = new Set(boundaries.packages.map((entry) => entry.name));
+  for (const name of implemented) assert.ok(declared.has(name), `${name} is not a declared boundary`);
+});
+
 test("all canonical core package boundaries exist exactly once", async () => {
   assert.deepEqual(boundaries.packages.map((entry) => entry.name), expected);
   assert.equal(new Set(expected).size, expected.length);
@@ -32,8 +37,14 @@ test("all canonical core package boundaries exist exactly once", async () => {
   }
 });
 
-test("later-gate packages contain only explicit G0 boundary exports", async () => {
-  for (const entry of boundaries.packages.filter((item) => item.name !== "@structile/agent-harness")) {
+/**
+ * Packages implemented so far. The G0 placeholder assertion below narrows as each gate
+ * lands; a package may only leave this list when its contract is actually implemented.
+ */
+const implemented = new Set(["@structile/agent-harness", "@structile/tokens"]);
+
+test("packages awaiting their gate contain only explicit boundary exports", async () => {
+  for (const entry of boundaries.packages.filter((item) => !implemented.has(item.name))) {
     const source = await readFile(resolve(root, entry.path, "src/index.ts"), "utf8");
     assert.match(source, /status: "g0-placeholder"/);
     assert.match(source, new RegExp(`implementationGate: "${entry.introducedGate}"`));
