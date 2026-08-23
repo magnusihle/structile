@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   TOKENS_CONTRACT_VERSION, SUPPORTED_TOKEN_MAJORS, TOKEN_CATEGORIES, TOKEN_IDS, contrastRatio, contrastRequirements,
-  defaultDarkTheme, defaultLightTheme, isTokenId, tenantOverridableTokens, tokenCategory,
+  defaultDarkTheme, defaultLightTheme, isTokenId, relativeLuminance, tenantOverridableTokens, tokenCategory,
   TokenContractError, validateTheme, validateThemeOverride, type Theme, type TokenId
 } from "../dist/index.js";
 
@@ -97,6 +97,54 @@ test("every declared pair clears WCAG 2.2 AA in both themes", () => {
       assert.ok(ratio >= minimum,
         `${theme.mode}: ${requirement.foreground} on ${requirement.background} is ${ratio.toFixed(2)}:1, below ${minimum}:1`);
     }
+  }
+});
+
+test("every renderable text-on-surface combination clears AA, declared or not", () => {
+  // The declared requirement list is hand-written and can omit a combination the runtime
+  // will still render. Checking only declared pairs leaves those omissions unprotected,
+  // so enumerate the cross product instead.
+  const texts = TOKEN_IDS.filter((id) => id.startsWith("color.text.") && id !== "color.text.inverse");
+  const surfaces = TOKEN_IDS.filter((id) => id.startsWith("color.surface."));
+  assert.ok(texts.length > 0 && surfaces.length > 0);
+  for (const theme of themes) {
+    for (const foreground of texts) {
+      for (const background of surfaces) {
+        const ratio = contrastRatio(theme.tokens[foreground], theme.tokens[background]);
+        const minimum = foreground === "color.text.disabled" ? MINIMUM.large as number : MINIMUM.body as number;
+        assert.ok(ratio >= minimum,
+          `${theme.mode}: ${foreground} on ${background} is ${ratio.toFixed(2)}:1, below ${minimum}:1`);
+      }
+    }
+  }
+  // Inverse text is for accent fills, not page surfaces.
+  for (const theme of themes) {
+    const ratio = contrastRatio(theme.tokens["color.text.inverse"], theme.tokens["color.accent.default"]);
+    assert.ok(ratio >= (MINIMUM.body as number), `${theme.mode}: inverse text on accent is ${ratio.toFixed(2)}:1`);
+  }
+});
+
+test("text weights are ordered primary > secondary > disabled", () => {
+  for (const theme of themes) {
+    const on = (id: TokenId): number => contrastRatio(theme.tokens[id], theme.tokens["color.surface.default"]);
+    const primary = on("color.text.primary");
+    const secondary = on("color.text.secondary");
+    const disabled = on("color.text.disabled");
+    assert.ok(primary > secondary, `${theme.mode}: primary (${primary.toFixed(1)}) must outrank secondary (${secondary.toFixed(1)})`);
+    assert.ok(secondary > disabled, `${theme.mode}: secondary (${secondary.toFixed(1)}) must outrank disabled (${disabled.toFixed(1)})`);
+  }
+});
+
+test("elevation raises lightness in both themes and overlays are visible", () => {
+  const ramp: TokenId[] = ["color.surface.sunken", "color.surface.default", "color.surface.raised", "color.surface.overlay"];
+  for (const theme of themes) {
+    const luminance = ramp.map((id) => relativeLuminance(theme.tokens[id]));
+    for (let index = 1; index < luminance.length; index += 1) {
+      assert.ok((luminance[index] as number) > (luminance[index - 1] as number),
+        `${theme.mode}: ${ramp[index]} must be lighter than ${ramp[index - 1]}; a raised surface that is darker reads as recessed`);
+    }
+    assert.notEqual(theme.tokens["color.surface.overlay"], theme.tokens["color.surface.default"],
+      `${theme.mode}: an overlay identical to the page behind it is invisible`);
   }
 });
 

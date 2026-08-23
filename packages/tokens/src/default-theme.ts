@@ -38,9 +38,11 @@ export const defaultLightTheme: Theme = Object.freeze({
   version: TOKENS_CONTRACT_VERSION,
   mode: "light",
   tokens: Object.freeze({
-    "color.surface.default": "#ffffff",
-    "color.surface.raised": "#f6f7f9",
-    "color.surface.sunken": "#eceef1",
+    // Elevation raises lightness, matching the dark theme's direction. A "raised" surface
+    // darker than the page reads as recessed, and an overlay equal to the page is invisible.
+    "color.surface.sunken": "#e8eaee",
+    "color.surface.default": "#f2f4f6",
+    "color.surface.raised": "#fafbfc",
     "color.surface.overlay": "#ffffff",
     "color.text.primary": "#14171c",
     "color.text.secondary": "#41474f",
