@@ -1,0 +1,18 @@
+{
+  "id": "orders.cancel",
+  "version": { "major": 1, "minor": 0 },
+  "input": { "type": "object", "properties": { "orderId": { "type": "string" } }, "required": ["orderId"] },
+  "output": { "type": "object", "properties": { "cancelled": { "type": "boolean" } }, "required": ["cancelled"] },
+  "permissions": ["orders.write"],
+  "scope": [{ "kind": "resource", "value": "orders" }],
+  "risk": "destructive",
+  "preview": { "required": true, "effectSummary": "Cancels one order and releases its reserved stock" },
+  "idempotency": { "keyRule": "client-supplied", "windowSeconds": 86400 },
+  "concurrency": { "optimisticToken": "version" },
+  "maxBatchSize": 1,
+  "mode": "sync",
+  "timeoutMs": 15000,
+  "retry": { "classification": "non-retryable" },
+  "audit": { "fields": ["orderId"] },
+  "redaction": { "fields": [] }
+}

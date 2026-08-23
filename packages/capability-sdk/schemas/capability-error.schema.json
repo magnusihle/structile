@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://structile.dev/schemas/capability-error.schema.json",
+  "title": "Structile capability error envelope (CAP-004)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "code",
+    "requestId",
+    "contractVersion"
+  ],
+  "properties": {
+    "code": {
+      "enum": [
+        "UNSUPPORTED_CONTRACT_VERSION",
+        "MALFORMED_MANIFEST",
+        "UNSIGNED_MANIFEST",
+        "UNKNOWN_RESOURCE",
+        "UNKNOWN_FIELD",
+        "UNAUTHORIZED_CAPABILITY",
+        "UNDECLARED_RELATIONSHIP",
+        "COST_LIMIT_EXCEEDED",
+        "INVALID_CURSOR",
+        "EXECUTION_DISABLED"
+      ]
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contractVersion": {
+      "type": "object",
+      "required": [
+        "major",
+        "minor"
+      ]
+    },
+    "detail": {
+      "type": "string"
+    }
+  }
+}

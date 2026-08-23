@@ -42,7 +42,8 @@ test("all canonical core package boundaries exist exactly once", async () => {
  * lands; a package may only leave this list when its contract is actually implemented.
  */
 const implemented = new Set([
-  "@structile/agent-harness", "@structile/tokens", "@structile/catalog", "@structile/spec"
+  "@structile/agent-harness", "@structile/tokens", "@structile/catalog", "@structile/spec",
+  "@structile/capability-sdk"
 ]);
 
 test("packages awaiting their gate contain only explicit boundary exports", async () => {
