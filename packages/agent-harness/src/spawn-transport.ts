@@ -16,6 +16,7 @@ export interface ProcessResult {
 }
 
 export interface ProcessTransport {
+  readonly materializesOutputFiles?: boolean;
   run(invocation: ProcessInvocation): Promise<ProcessResult>;
 }
 
@@ -32,6 +33,8 @@ function terminateProcessGroup(child: ChildProcess): void {
 }
 
 export class SpawnProcessTransport implements ProcessTransport {
+  readonly materializesOutputFiles = true;
+
   async run(invocation: ProcessInvocation): Promise<ProcessResult> {
     return await new Promise((resolve, reject) => {
       const child = spawn(invocation.program, [...invocation.args], {
