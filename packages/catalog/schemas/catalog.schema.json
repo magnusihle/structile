@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://structile.dev/schemas/catalog.schema.json",
+  "title": "Structile component catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion","components"],
+  "properties": {
+    "schemaVersion": {"const":"1.0.0"},
+    "components": {"type":"array",
+      "items": {"$ref":"https://structile.dev/schemas/component-registration.schema.json"}}
+  }
+}

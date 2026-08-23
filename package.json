@@ -16,7 +16,8 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "check": "npm run planning:check && npm run language:check && npm run build && npm run typecheck:authored && npm test && npm run compose:config",
+    "build:catalog": "node scripts/build-catalog.ts",
+    "check": "npm run planning:check && npm run language:check && npm run build && npm run build:catalog && npm run typecheck:authored && npm test && npm run compose:config",
     "compose:config": "STRUCTILE_DEV_POSTGRES_PASSWORD_FILE=/dev/null docker compose config --quiet",
     "compose:down": "docker compose down --volumes --remove-orphans",
     "language:check": "node scripts/validate-language-policy.ts",
