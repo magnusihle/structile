@@ -18,8 +18,62 @@ function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): 
   return JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
 }
 
+function validRepository(repository: string): boolean {
+  try {
+    const url = new URL(repository);
+    if (
+      url.protocol !== "https:" ||
+      url.hostname !== "github.com" ||
+      url.port !== "" ||
+      url.username !== "" ||
+      url.password !== "" ||
+      url.search !== "" ||
+      url.hash !== ""
+    ) return false;
+    const segments = url.pathname.split("/");
+    if (segments.length !== 3 || segments[0] !== "") return false;
+    const owner = segments[1] ?? "";
+    const name = (segments[2] ?? "").replace(/\.git$/, "");
+    return (
+      /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(owner) &&
+      /^[A-Za-z0-9._-]{1,100}$/.test(name) &&
+      name !== "." &&
+      name !== ".."
+    );
+  } catch {
+    return false;
+  }
+}
+
+function validRelativePath(path: string): boolean {
+  if (path.length === 0 || path.startsWith("/") || path.includes("\\") || /[\u0000-\u001f\u007f]/.test(path)) return false;
+  const segments = path.split("/");
+  return segments.every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
+}
+
+function validAllowedPathPattern(pattern: string): boolean {
+  const recursive = pattern.endsWith("/**");
+  const base = recursive ? pattern.slice(0, -3) : pattern;
+  if (base.includes("*") || (pattern.includes("*") && !recursive)) return false;
+  return validRelativePath(base);
+}
+
+function validImplementationBranch(branch: string): boolean {
+  if (
+    branch === "main" ||
+    branch.length > 244 ||
+    branch.startsWith("refs/") ||
+    !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(branch) ||
+    branch.endsWith("/") ||
+    branch.endsWith(".") ||
+    branch.includes("//") ||
+    branch.includes("..")
+  ) return false;
+  return branch.split("/").every((segment) => !segment.startsWith(".") && !segment.endsWith(".lock"));
+}
+
 function allowedPath(path: string, patterns: readonly string[]): boolean {
-  if (path.startsWith("/") || path.includes("..") || path.includes("\\")) return false;
+  if (!validRelativePath(path)) return false;
   return patterns.some((pattern) => {
     if (pattern.endsWith("/**")) {
       const prefix = pattern.slice(0, -2);
@@ -34,9 +88,9 @@ export function validateTaskRequest(request: AgentTaskRequest): void {
   if (request.requirementIds.length === 0 || request.requirementIds.some((id) => !ID.test(id))) throw new Error("invalid requirementIds");
   if (!SHA256.test(request.requirementDigest) || !SHA256.test(request.testDigest)) throw new Error("invalid protected digest");
   if (!SHA.test(request.baseCommit)) throw new Error("invalid baseCommit");
-  if (!request.repository.startsWith("https://github.com/")) throw new Error("repository must be an HTTPS GitHub URL");
-  if (!/^[A-Za-z0-9._/-]+$/.test(request.branch) || request.branch === "main") throw new Error("invalid implementation branch");
-  if (request.allowedPaths.length === 0 || request.allowedPaths.some((path) => path.startsWith("/") || path.includes(".."))) throw new Error("invalid allowedPaths");
+  if (!validRepository(request.repository)) throw new Error("repository must be a canonical HTTPS GitHub repository URL");
+  if (!validImplementationBranch(request.branch)) throw new Error("invalid implementation branch");
+  if (request.allowedPaths.length === 0 || request.allowedPaths.some((path) => !validAllowedPathPattern(path))) throw new Error("invalid allowedPaths");
   if (!Number.isInteger(request.budget.timeoutMs) || request.budget.timeoutMs <= 0) throw new Error("invalid timeout budget");
   if (!Number.isInteger(request.budget.maxOutputBytes) || request.budget.maxOutputBytes <= 0) throw new Error("invalid output budget");
   if (request.prompt.trim().length === 0) throw new Error("prompt is required");

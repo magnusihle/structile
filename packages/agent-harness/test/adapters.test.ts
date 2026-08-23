@@ -8,7 +8,8 @@ import {
   type AgentTaskRequest,
   type AgentTaskResult,
   type ProcessInvocation,
-  type ProcessTransport
+  type ProcessTransport,
+  validateTaskRequest
 } from "../dist/index.js";
 
 const request = {
@@ -80,4 +81,30 @@ test("both operational contracts reject results outside path and tool budgets", 
   await assert.rejects(codex.execute(request, context), /outside its budget/);
   const claude = new ClaudeCodeAdapter({ execute: async () => outside });
   await assert.rejects(claude.execute(request, context), /outside its budget/);
+});
+
+test("task envelopes reject repository-origin confusion and malformed branch or path budgets", () => {
+  for (const repository of [
+    "https://github.com.evil.example/magnusihle/structile",
+    "https://github.com@evil.example/magnusihle/structile",
+    "https://github.com/magnusihle/structile?credential=canary",
+    "https://github.com/magnusihle/structile/extra"
+  ]) {
+    assert.throws(() => validateTaskRequest({ ...request, repository }), /canonical HTTPS GitHub repository URL/);
+  }
+
+  for (const branch of ["main", "refs/heads/main", "/g0/test", "g0//test", "g0/../main", "g0/test.lock"]) {
+    assert.throws(() => validateTaskRequest({ ...request, branch }), /invalid implementation branch/);
+  }
+
+  for (const allowedPaths of [
+    ["packages/agent-harness/../auth/**"],
+    ["packages\\agent-harness\\**"],
+    ["packages/*/src/**"],
+    ["packages//agent-harness/**"]
+  ]) {
+    assert.throws(() => validateTaskRequest({ ...request, allowedPaths }), /invalid allowedPaths/);
+  }
+
+  assert.doesNotThrow(() => validateTaskRequest(request));
 });
