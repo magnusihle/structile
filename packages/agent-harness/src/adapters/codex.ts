@@ -1,6 +1,6 @@
 import type { AgentAdapter, AgentExecutionContext, AgentTaskRequest, AgentTaskResult } from "../contracts.js";
 import type { ProcessInvocation, ProcessTransport } from "../spawn-transport.js";
-import { parseAgentTaskResult, validateTaskRequest, validateTaskResultAgainstRequest } from "../validation.js";
+import { parseAgentTaskResult, validateNoCredentialExposure, validateTaskRequest, validateTaskResultAgainstRequest } from "../validation.js";
 
 function taskPrompt(request: AgentTaskRequest): string {
   return [
@@ -55,6 +55,7 @@ export class CodexAdapter implements AgentAdapter {
     const result = await this.transport.run(invocation);
     if (result.exitCode !== 0) throw new Error(`codex exec failed with exit ${result.exitCode}`);
     const normalized = parseAgentTaskResult(result.stdout);
+    validateNoCredentialExposure(context, normalized);
     validateTaskResultAgainstRequest(request, normalized);
     return normalized;
   }
