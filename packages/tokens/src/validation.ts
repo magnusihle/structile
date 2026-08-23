@@ -1,4 +1,4 @@
-import { TOKEN_IDS, isTokenId, tenantOverridableTokens, tokenCategory,
+import { SUPPORTED_TOKEN_MAJORS, TOKEN_IDS, isTokenId, tenantOverridableTokens, tokenCategory,
          type TokenCategory, type TokenId } from "./contract.js";
 import { TokenContractError } from "./errors.js";
 import { THEME_SCOPES, type Theme, type ThemeMode, type ThemeOverride, type ThemeScope } from "./theme.js";
@@ -54,6 +54,39 @@ const ROLE_GRAMMAR: ReadonlyArray<readonly [RegExp, RegExp, string]> = Object.fr
   [/^typography\..*\.weight$/, /^[1-9]00$/, "100..900 in hundreds"]
 ] as const);
 
+/** Upper bounds on numeric token values. A valid grammar is not the same as a sane value. */
+const NUMERIC_BOUNDS: ReadonlyArray<readonly [RegExp, number, number, string]> = Object.freeze([
+  [/^spacing\./, 0, 256, "px"],
+  [/^typography\..*\.size$/, 8, 128, "px"],
+  [/^typography\..*\.lineHeight$/, 0, 128, "px or ratio"],
+  [/^motion\.(?!easing)/, 0, 5_000, "ms"],
+  [/^density\./, 0.25, 4, "multiplier"]
+] as const);
+
+const BEZIER = /^cubic-bezier\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)$/;
+
+function checkBounds(id: string, value: string, violations: string[]): void {
+  if (id.startsWith("motion.easing.")) {
+    const bezier = BEZIER.exec(value);
+    if (!bezier) { violations.push(`${id}: easing must be cubic-bezier with exactly four numbers`); return; }
+    for (const index of [1, 3]) {
+      const control = Number(bezier[index]);
+      if (control < 0 || control > 1) violations.push(`${id}: bezier control point ${String(index)} must be within 0..1`);
+    }
+    return;
+  }
+  for (const [selector, minimum, maximum, unit] of NUMERIC_BOUNDS) {
+    if (!selector.test(id)) continue;
+    const magnitude = Number.parseFloat(value);
+    if (!Number.isFinite(magnitude)) { violations.push(`${id}: value must be numeric`); return; }
+    const normalised = value.endsWith("rem") ? magnitude * 16 : magnitude;
+    if (normalised < minimum || normalised > maximum) {
+      violations.push(`${id}: ${value} is outside the supported range ${minimum}..${maximum} ${unit}`);
+    }
+    return;
+  }
+}
+
 function scanValue(id: string, value: unknown, violations: string[]): void {
   if (typeof value !== "string") {
     violations.push(`${id}: value must be a string, received ${typeof value}`);
@@ -73,13 +106,16 @@ function scanValue(id: string, value: unknown, violations: string[]): void {
   for (const [selector, grammar, label] of ROLE_GRAMMAR) {
     if (selector.test(id)) {
       if (!grammar.test(value)) violations.push(`${id}: value must be a ${label}`);
+      else checkBounds(id, value, violations);
       return;
     }
   }
   const grammar = CATEGORY_GRAMMAR[tokenCategory(id)];
   if (grammar !== null && !grammar.test(value)) {
     violations.push(`${id}: value does not match the ${tokenCategory(id)} grammar`);
+    return;
   }
+  checkBounds(id, value, violations);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -107,8 +143,12 @@ export function validateTheme(value: unknown): Theme {
     violations.push(`mode must be one of ${MODES.join(", ")}`);
   }
   const version = value.version;
-  if (!isRecord(version) || typeof version.major !== "number" || typeof version.minor !== "number") {
-    violations.push("version must declare numeric major and minor");
+  if (!isRecord(version) || !Number.isInteger(version.major) || !Number.isInteger(version.minor)
+      || (version.major as number) < 1 || (version.minor as number) < 0) {
+    violations.push("version must declare a positive integer major and a non-negative integer minor");
+  } else if (!SUPPORTED_TOKEN_MAJORS.includes(version.major as number)) {
+    violations.push(
+      `unsupported token-contract major ${String(version.major)}; supported: ${SUPPORTED_TOKEN_MAJORS.join(", ")}`);
   }
 
   const tokens = value.tokens;

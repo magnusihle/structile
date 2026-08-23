@@ -13,6 +13,13 @@ export interface ContractVersion {
 
 export const TOKENS_CONTRACT_VERSION: ContractVersion = Object.freeze({ major: 1, minor: 0 });
 
+/**
+ * Token-contract majors this code can read. A theme is versioned data: a newer major
+ * means the taxonomy changed, so reading it with these token IDs would silently produce
+ * a half-themed interface. Fail closed instead, as `@structile/spec` does for specs.
+ */
+export const SUPPORTED_TOKEN_MAJORS: readonly number[] = Object.freeze([1]);
+
 /** The six categories named by DS-001. Order is stable and part of the contract. */
 export const TOKEN_CATEGORIES = Object.freeze([
   "color", "typography", "spacing", "elevation", "motion", "density"

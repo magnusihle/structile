@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
-  TOKENS_CONTRACT_VERSION, TOKEN_CATEGORIES, TOKEN_IDS, contrastRatio, contrastRequirements,
+  TOKENS_CONTRACT_VERSION, SUPPORTED_TOKEN_MAJORS, TOKEN_CATEGORIES, TOKEN_IDS, contrastRatio, contrastRequirements,
   defaultDarkTheme, defaultLightTheme, isTokenId, tenantOverridableTokens, tokenCategory,
   TokenContractError, validateTheme, validateThemeOverride, type Theme, type TokenId
 } from "../dist/index.js";
@@ -146,6 +146,32 @@ test("contrast helpers reject bad input with a typed error, not a TypeError", ()
   for (const bad of [undefined, null, 42, {}, "not-a-colour"]) {
     assert.throws(() => contrastRatio(bad as unknown as string, "#ffffff"), TokenContractError, `accepted ${String(bad)}`);
   }
+});
+
+test("the contract version is enforced and fails closed on an unreadable major", () => {
+  validateTheme({ ...defaultLightTheme, version: { major: 1, minor: 0 } });
+  for (const version of [{ major: 99, minor: 0 }, { major: 0, minor: 0 }, { major: -1, minor: 0 },
+                         { major: 1.5, minor: 0 }, { major: 1, minor: -1 }, { major: "1", minor: 0 }]) {
+    assert.throws(() => validateTheme({ ...defaultLightTheme, version }), TokenContractError,
+      `accepted version ${JSON.stringify(version)}`);
+  }
+  assert.deepEqual([...SUPPORTED_TOKEN_MAJORS], [TOKENS_CONTRACT_VERSION.major]);
+});
+
+test("numeric token values are bounded, not merely well-formed", () => {
+  const outOfRange: Array<[TokenId, string]> = [
+    ["spacing.100", "99999px"],
+    ["typography.body.size", "999px"],
+    ["motion.slow", "99999999ms"],
+    ["density.comfortable", "999999"],
+    ["motion.easing.standard", "cubic-bezier(1,2,3,4,5,6,7,8)"],
+    ["motion.easing.standard", "cubic-bezier(5, 0, 0.2, 1)"]
+  ];
+  for (const [id, value] of outOfRange) {
+    assert.throws(() => validateTheme(withToken(defaultLightTheme, id, value)), TokenContractError, `${id} accepted ${value}`);
+  }
+  validateTheme(withToken(defaultLightTheme, "spacing.100", "1rem"));
+  validateTheme(withToken(defaultLightTheme, "motion.easing.standard", "cubic-bezier(0.2, 0, 0, 1)"));
 });
 
 test("the published schemas match the contract", async () => {

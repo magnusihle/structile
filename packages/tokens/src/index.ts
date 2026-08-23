@@ -1,5 +1,5 @@
 export {
-  TOKENS_CONTRACT_VERSION, TOKEN_CATEGORIES, TOKEN_IDS,
+  TOKENS_CONTRACT_VERSION, SUPPORTED_TOKEN_MAJORS, TOKEN_CATEGORIES, TOKEN_IDS,
   isTokenId, tokenCategory, tenantOverridableTokens,
   type ContractVersion, type TokenCategory, type TokenId
 } from "./contract.js";
