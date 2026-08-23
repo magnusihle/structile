@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
 import {
   CodexAdapter,
   ClaudeCodeAdapter,
@@ -29,7 +32,7 @@ const request = {
 const context = {
   workspace: "/workspace",
   resultSchemaPath: "/policy/agent-result.schema.json",
-  resultPath: "/tmp/result.json",
+  resultPath: `/tmp/structile-adapter-result-${process.pid}.json`,
   environment: { PATH: "/usr/bin", CODEX_API_KEY: "canary-not-returned" }
 } satisfies AgentExecutionContext;
 
@@ -52,6 +55,56 @@ test("Codex adapter uses explicit non-interactive sandboxed arguments without a 
   assert.ok(!invocation.args.includes("danger-full-access"));
   assert.equal(invocation.environment.CODEX_API_KEY, "canary-not-returned");
   assert.doesNotMatch(JSON.stringify(expected), /canary-not-returned/);
+});
+
+test("Codex adapter reads the bounded final-message file instead of streamed stdout", async (t) => {
+  const directory = await mkdtemp(resolve(tmpdir(), "structile-codex-result-"));
+  t.after(async () => { await rm(directory, { recursive: true, force: true }); });
+  const expected: AgentTaskResult = {
+    status: "completed", changedPaths: [], commits: [], commands: [], claims: [], risks: [],
+    unresolvedQuestions: [], requestedApprovals: [], usage: { durationMs: 1 }
+  };
+  const fileContext = { ...context, resultPath: resolve(directory, "result.json") };
+  const transport: ProcessTransport = {
+    materializesOutputFiles: true,
+    run: async () => {
+      await writeFile(fileContext.resultPath, JSON.stringify(expected));
+      return { exitCode: 0, stdout: "streamed progress, not the final result", stderr: "" };
+    }
+  };
+  assert.deepEqual(await new CodexAdapter(transport).execute(request, fileContext), expected);
+});
+
+test("Codex adapter rejects stale, missing, and oversized final-message files", async (t) => {
+  const directory = await mkdtemp(resolve(tmpdir(), "structile-codex-result-invalid-"));
+  t.after(async () => { await rm(directory, { recursive: true, force: true }); });
+  const staleContext = { ...context, resultPath: resolve(directory, "stale.json") };
+  await writeFile(staleContext.resultPath, "stale");
+  let invoked = false;
+  const staleTransport: ProcessTransport = {
+    materializesOutputFiles: true,
+    run: async () => { invoked = true; return { exitCode: 0, stdout: "{}", stderr: "" }; }
+  };
+  await assert.rejects(new CodexAdapter(staleTransport).execute(request, staleContext), /must not already exist/);
+  assert.equal(invoked, false);
+
+  const missingContext = { ...context, resultPath: resolve(directory, "missing.json") };
+  const missingTransport: ProcessTransport = {
+    materializesOutputFiles: true,
+    run: async () => ({ exitCode: 0, stdout: "{}", stderr: "" })
+  };
+  await assert.rejects(new CodexAdapter(missingTransport).execute(request, missingContext), /did not create its result file/);
+
+  const oversizedContext = { ...context, resultPath: resolve(directory, "oversized.json") };
+  const smallBudgetRequest = { ...request, budget: { ...request.budget, maxOutputBytes: 8 } };
+  const oversizedTransport: ProcessTransport = {
+    materializesOutputFiles: true,
+    run: async () => {
+      await writeFile(oversizedContext.resultPath, "x".repeat(9));
+      return { exitCode: 0, stdout: "{}", stderr: "" };
+    }
+  };
+  await assert.rejects(new CodexAdapter(oversizedTransport).execute(smallBudgetRequest, oversizedContext), /output budget exceeded/);
 });
 
 test("Claude contract can remain behind the deterministic mock transport", async () => {
