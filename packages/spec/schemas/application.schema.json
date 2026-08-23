@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://structile.dev/schemas/application.schema.json",
+  "title": "Structile application specification (data only)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["specVersion","id","title","pages"],
+  "properties": {
+    "specVersion": {"type":"object","additionalProperties":false,"required":["major","minor"],
+      "properties":{"major":{"type":"integer","minimum":1},"minor":{"type":"integer","minimum":0}}},
+    "id": {"type":"string","pattern":"^[a-z][a-z0-9]*(?:[-.][a-z0-9]+)*$"},
+    "title": {"type":"string","minLength":1,"maxLength":4096},
+    "themeRef": {"type":"string"},
+    "pages": {"type":"array","items":{"$ref":"https://structile.dev/schemas/page.schema.json"}}
+  }
+}

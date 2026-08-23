@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://structile.dev/schemas/node.schema.json",
+  "title": "Structile specification node",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["componentId","props","slots"],
+  "properties": {
+    "componentId": {"type":"string","pattern":"^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9]*)+$"},
+    "props": {"type":"object"},
+    "slots": {"type":"object",
+      "additionalProperties":{"type":"array","items":{"$ref":"https://structile.dev/schemas/node.schema.json"}}},
+    "queryRef": {"type":"string"},
+    "actionRef": {"type":"string"}
+  }
+}
