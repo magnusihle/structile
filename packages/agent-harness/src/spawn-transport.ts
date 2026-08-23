@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 
 export interface ProcessInvocation {
   readonly program: string;
@@ -19,12 +19,25 @@ export interface ProcessTransport {
   run(invocation: ProcessInvocation): Promise<ProcessResult>;
 }
 
+function terminateProcessGroup(child: ChildProcess): void {
+  if (process.platform !== "win32" && child.pid !== undefined) {
+    try {
+      process.kill(-child.pid, "SIGKILL");
+      return;
+    } catch {
+      // Fall back to the direct child if it exited before its process group was signalled.
+    }
+  }
+  child.kill("SIGKILL");
+}
+
 export class SpawnProcessTransport implements ProcessTransport {
   async run(invocation: ProcessInvocation): Promise<ProcessResult> {
     return await new Promise((resolve, reject) => {
       const child = spawn(invocation.program, [...invocation.args], {
         cwd: invocation.cwd,
         env: { ...invocation.environment },
+        detached: process.platform !== "win32",
         shell: false,
         stdio: ["ignore", "pipe", "pipe"]
       });
@@ -36,7 +49,7 @@ export class SpawnProcessTransport implements ProcessTransport {
       const stop = (error: Error) => {
         if (settled) return;
         settled = true;
-        child.kill("SIGKILL");
+        terminateProcessGroup(child);
         reject(error);
       };
       const collect = (current: string, chunk: Buffer): string => {
