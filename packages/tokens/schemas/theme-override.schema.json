@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://structile.dev/schemas/theme-override.schema.json",
+  "title": "Structile scoped theme override",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scope"
+  ],
+  "properties": {
+    "scope": {
+      "enum": [
+        "product",
+        "tenant",
+        "user"
+      ]
+    },
+    "mode": {
+      "enum": [
+        "light",
+        "dark"
+      ]
+    },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color.surface.default": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.surface.raised": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.surface.sunken": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.surface.overlay": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.text.primary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.text.secondary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.text.disabled": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.text.inverse": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.border.default": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.border.subtle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.border.strong": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.accent.default": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.accent.hover": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.accent.contrast": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.status.success": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.status.warning": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.status.danger": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.status.info": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "color.brand.logo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "typography.family.sans": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "typography.family.mono": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "typography.heading.size": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "typography.heading.lineHeight": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "typography.heading.weight": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "typography.body.size": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "typography.body.lineHeight": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "typography.body.weight": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "typography.caption.size": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "typography.caption.lineHeight": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "typography.caption.weight": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "spacing.050": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "spacing.100": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "spacing.200": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "spacing.300": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "spacing.400": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "spacing.600": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "spacing.800": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "elevation.000": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "elevation.100": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "elevation.200": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "elevation.300": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "motion.instant": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "motion.fast": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "motion.moderate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "motion.slow": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "motion.easing.standard": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "density.compact": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "density.comfortable": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "density.spacious": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    }
+  }
+}
