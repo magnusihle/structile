@@ -167,8 +167,11 @@ export function validateActionDeclaration(value: unknown, requestId?: string): A
       // An empty summary defeats the purpose: preview exists so a human can read what the
       // action will do before confirming it.
       violations.push("preview must declare required and a non-empty human-readable effectSummary");
-    } else if (RISKS.indexOf(value.risk as ActionRisk) > 0 && preview.required !== true) {
-      violations.push(`${String(value.risk)} actions must require preview`);
+    } else if (preview.required !== true) {
+      // `docs/planning/architecture.md`: "Normal updates require preview and confirmation."
+      // Preview is not a severity escalation - it is the confirmation step for every
+      // mutation. Risk decides whether recent reauthentication is *additionally* required.
+      violations.push("every action must require preview; risk decides whether reauthentication is also required");
     }
   }
   if (value.idempotency !== undefined) {
@@ -187,6 +190,15 @@ export function validateActionDeclaration(value: unknown, requestId?: string): A
   if (value.maxBatchSize !== undefined
       && (!Number.isInteger(value.maxBatchSize) || (value.maxBatchSize as number) < 1 || (value.maxBatchSize as number) > MAX_BATCH)) {
     violations.push(`maxBatchSize must be an integer 1..${MAX_BATCH}`);
+  } else if (Number.isInteger(value.maxBatchSize) && typeof value.risk === "string") {
+    // Risk and batch size must agree. A batching action declared `normal` would escape the
+    // recent-reauthentication requirement that bulk and high-impact actions carry, so the
+    // label cannot contradict the capability.
+    const batch = value.maxBatchSize as number;
+    if (value.risk === "bulk" && batch <= 1) violations.push("a bulk action must declare maxBatchSize greater than 1");
+    if (batch > 1 && value.risk !== "bulk" && value.risk !== "high-impact") {
+      violations.push(`maxBatchSize ${batch} requires risk bulk or high-impact, not ${value.risk}`);
+    }
   }
   if (value.timeoutMs !== undefined
       && (!Number.isInteger(value.timeoutMs) || (value.timeoutMs as number) < 1 || (value.timeoutMs as number) > MAX_TIMEOUT_MS)) {
@@ -194,6 +206,16 @@ export function validateActionDeclaration(value: unknown, requestId?: string): A
   }
   if (value.retry !== undefined && (!isRecord(value.retry) || !RETRY.includes(value.retry.classification as string))) {
     violations.push(`retry.classification must be one of ${RETRY.join(", ")}`);
+  }
+  // The idempotency window must outlast the timeout. A client that retries after a timeout
+  // would otherwise present its key outside the dedup window and commit the effect twice,
+  // which is exactly what ACT-001's idempotency rule exists to prevent.
+  if (isRecord(value.idempotency) && Number.isInteger(value.idempotency.windowSeconds)
+      && Number.isInteger(value.timeoutMs)) {
+    const windowMs = (value.idempotency.windowSeconds as number) * 1_000;
+    if (windowMs < (value.timeoutMs as number)) {
+      violations.push(`idempotency window (${windowMs}ms) must be at least the timeout (${String(value.timeoutMs)}ms)`);
+    }
   }
   for (const section of ["audit", "redaction"] as const) {
     const entry = value[section];

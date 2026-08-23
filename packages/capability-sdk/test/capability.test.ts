@@ -103,7 +103,9 @@ test("every ACT-001 field is required", () => {
 
 test("risk, mode, batch, timeout and retry are constrained", () => {
   for (const risk of ["normal", "destructive", "bulk", "high-impact"]) {
-    validateActionDeclaration({ ...clone(), risk, preview: { required: true, effectSummary: "x" } });
+    // bulk must be able to batch; the other risks must not, so pair each consistently
+    validateActionDeclaration({ ...clone(), risk, maxBatchSize: risk === "bulk" ? 10 : 1,
+      preview: { required: true, effectSummary: "x" } });
   }
   assert.throws(() => validateActionDeclaration({ ...clone(), risk: "trivial" }), CapabilityContractError);
   assert.throws(() => validateActionDeclaration({ ...clone(), mode: "fire-and-forget" }), CapabilityContractError);
@@ -159,11 +161,39 @@ test("preview, idempotency and concurrency are validated when present", () => {
   }
 });
 
-test("a risky action cannot opt out of preview", () => {
-  assert.throws(() => validateActionDeclaration({
-    ...clone(), risk: "high-impact", preview: { required: false, effectSummary: "x" }
-  }), CapabilityContractError);
-  validateActionDeclaration({ ...clone(), risk: "normal", preview: { required: false, effectSummary: "x" } });
+test("no action can opt out of preview, whatever its risk", () => {
+  // architecture.md: "Normal updates require preview and confirmation." Preview is the
+  // confirmation step for every mutation, not an escalation for risky ones.
+  for (const risk of ["normal", "destructive", "bulk", "high-impact"]) {
+    const batch = risk === "bulk" ? 10 : 1;
+    assert.throws(() => validateActionDeclaration({
+      ...clone(), risk, maxBatchSize: batch, preview: { required: false, effectSummary: "x" }
+    }), CapabilityContractError, `${risk} was allowed to skip preview`);
+    validateActionDeclaration({ ...clone(), risk, maxBatchSize: batch, preview: { required: true, effectSummary: "x" } });
+  }
+});
+
+test("risk and batch size cannot contradict each other", () => {
+  // A batching action labelled `normal` would escape the recent-reauthentication that
+  // bulk and high-impact carry, so the label must match the capability.
+  assert.throws(() => validateActionDeclaration({ ...clone(), risk: "bulk", maxBatchSize: 1 }),
+    CapabilityContractError, "a bulk action that cannot batch was accepted");
+  for (const risk of ["normal", "destructive"]) {
+    assert.throws(() => validateActionDeclaration({ ...clone(), risk, maxBatchSize: 1000 }),
+      CapabilityContractError, `${risk} was allowed to batch 1000 records`);
+  }
+  validateActionDeclaration({ ...clone(), risk: "bulk", maxBatchSize: 100 });
+  validateActionDeclaration({ ...clone(), risk: "high-impact", maxBatchSize: 50 });
+});
+
+test("the idempotency window must outlast the timeout", () => {
+  // Otherwise a retry after a timeout presents its key outside the dedup window and the
+  // effect commits twice.
+  assert.throws(() => validateActionDeclaration({ ...clone(), timeoutMs: 300_000,
+    idempotency: { keyRule: "client-supplied", windowSeconds: 1 } }),
+    CapabilityContractError, "a window shorter than the timeout was accepted");
+  validateActionDeclaration({ ...clone(), timeoutMs: 15_000,
+    idempotency: { keyRule: "client-supplied", windowSeconds: 15 } });
 });
 
 test("actions may only scope to records, never to code, SQL, network or infrastructure", () => {
