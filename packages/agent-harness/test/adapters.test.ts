@@ -83,6 +83,27 @@ test("both operational contracts reject results outside path and tool budgets", 
   await assert.rejects(claude.execute(request, context), /outside its budget/);
 });
 
+test("both operational contracts reject credential values in normalized results", async () => {
+  const exposed: AgentTaskResult = {
+    status: "failed", changedPaths: [], commits: [], commands: [], claims: [],
+    risks: ["provider returned canary-not-returned"], unresolvedQuestions: [],
+    requestedApprovals: [], usage: { durationMs: 1 }
+  };
+  const codex = new CodexAdapter({ run: async () => ({ exitCode: 0, stdout: JSON.stringify(exposed), stderr: "" }) });
+  await assert.rejects(codex.execute(request, context), /exposed a credential value/);
+  const claude = new ClaudeCodeAdapter({ execute: async () => exposed });
+  await assert.rejects(claude.execute(request, context), /exposed a credential value/);
+});
+
+test("Claude transport results receive the same runtime schema validation as Codex output", async () => {
+  const malformed = {
+    status: "completed", changedPaths: [], commits: [], commands: [], claims: [], risks: [],
+    unresolvedQuestions: [], requestedApprovals: [], usage: { durationMs: 1 }, unexpected: true
+  } as unknown as AgentTaskResult;
+  const claude = new ClaudeCodeAdapter({ execute: async () => malformed });
+  await assert.rejects(claude.execute(request, context), /unexpected or missing keys/);
+});
+
 test("task envelopes reject repository-origin confusion and malformed branch or path budgets", () => {
   for (const repository of [
     "https://github.com.evil.example/magnusihle/structile",

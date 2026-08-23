@@ -1,9 +1,10 @@
-import type { AgentTaskRequest, AgentTaskResult, AgentTaskStatus } from "./contracts.js";
+import type { AgentExecutionContext, AgentTaskRequest, AgentTaskResult, AgentTaskStatus } from "./contracts.js";
 
 const ID = /^[A-Z][A-Z0-9]*-[0-9]{3}$/;
 const SHA = /^[a-f0-9]{40,64}$/;
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
 const HEX256 = /^[a-f0-9]{64}$/;
+const CREDENTIAL_ENVIRONMENT_NAME = /(?:^|_)(?:API_?KEY|ACCESS_?KEY|PRIVATE_?KEY|TOKEN|SECRET|PASSWORD|PASSCODE|CREDENTIALS?|DATABASE_URL|CONNECTION_STRING|DSN)(?:_|$)/i;
 const statuses = new Set<AgentTaskStatus>(["completed", "blocked", "needs-human", "failed"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -83,6 +84,13 @@ function allowedPath(path: string, patterns: readonly string[]): boolean {
   });
 }
 
+function containsCredential(value: unknown, credential: string): boolean {
+  if (typeof value === "string") return value === credential || (credential.length >= 8 && value.includes(credential));
+  if (Array.isArray(value)) return value.some((item) => containsCredential(item, credential));
+  if (isRecord(value)) return Object.values(value).some((item) => containsCredential(item, credential));
+  return false;
+}
+
 export function validateTaskRequest(request: AgentTaskRequest): void {
   if (!/^[A-Za-z0-9._:-]{8,200}$/.test(request.taskId)) throw new Error("invalid taskId");
   if (request.requirementIds.length === 0 || request.requirementIds.some((id) => !ID.test(id))) throw new Error("invalid requirementIds");
@@ -121,4 +129,13 @@ export function validateTaskResultAgainstRequest(request: AgentTaskRequest, resu
   const tokens = (result.usage.inputTokens ?? 0) + (result.usage.outputTokens ?? 0);
   if (request.budget.tokenLimit !== undefined && tokens > request.budget.tokenLimit) throw new Error("agent reported tokens beyond its budget");
   if (request.budget.costLimitUsd !== undefined && (result.usage.estimatedCostUsd ?? 0) > request.budget.costLimitUsd) throw new Error("agent reported cost beyond its budget");
+}
+
+export function validateNoCredentialExposure(context: AgentExecutionContext, result: AgentTaskResult): void {
+  const credentials = Object.entries(context.environment)
+    .filter(([name, value]) => CREDENTIAL_ENVIRONMENT_NAME.test(name) && value.length > 0)
+    .map(([, value]) => value);
+  if (credentials.some((credential) => containsCredential(result, credential))) {
+    throw new Error("agent result exposed a credential value");
+  }
 }
