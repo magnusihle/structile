@@ -8,6 +8,13 @@ export const MANIFEST_KEYS: readonly string[] = Object.freeze([
   "relationships", "queries", "exports", "actions", "signature"
 ]);
 
+/** The published schemas set additionalProperties:false; the validators must agree. */
+function rejectUnknownKeys(value: Record<string, unknown>, allowed: readonly string[], violations: string[]): void {
+  for (const key of Object.keys(value)) {
+    if (!allowed.includes(key)) violations.push(`unknown property ${key}`);
+  }
+}
+
 const ACTION_FIELDS: readonly string[] = Object.freeze([
   "id", "version", "input", "output", "permissions", "scope", "risk", "preview",
   "idempotency", "concurrency", "maxBatchSize", "mode", "timeoutMs", "retry", "audit", "redaction"
@@ -32,6 +39,12 @@ const IDENTIFIER = /^[a-z][a-zA-Z0-9_]*$/;
 const MAX_BATCH = 1_000;
 const MAX_TIMEOUT_MS = 300_000;
 
+/**
+ * Duplicated per package on purpose. `architecture/package-boundaries.json` fixes the
+ * thirteen package names and ARCH-001 asserts that exact list, so there is no shared
+ * utility package to host this; importing it across packages would add dependency edges
+ * between contract packages to save three lines. Keep the implementations identical.
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -49,8 +62,9 @@ export function validateCapabilityManifest(value: unknown, requestId?: string): 
   if (!isRecord(value)) fail("MALFORMED_MANIFEST", ["manifest must be an object"], requestId);
 
   const version = value.contractVersion;
-  if (!isRecord(version) || !Number.isInteger(version.major)) {
-    fail("MALFORMED_MANIFEST", ["contractVersion must declare an integer major"], requestId);
+  if (!isRecord(version) || !Number.isInteger(version.major) || (version.major as number) < 1
+      || !Number.isInteger(version.minor) || (version.minor as number) < 0) {
+    fail("MALFORMED_MANIFEST", ["contractVersion must declare a positive integer major and a non-negative minor"], requestId);
   }
   if (!SUPPORTED_PROTOCOL_VERSIONS.some((supported) => supported.major === version.major)) {
     fail("UNSUPPORTED_CONTRACT_VERSION", [`major ${String(version.major)} is not supported`], requestId);
@@ -64,13 +78,15 @@ export function validateCapabilityManifest(value: unknown, requestId?: string): 
   }
 
   const violations: string[] = [];
+  rejectUnknownKeys(value, MANIFEST_KEYS, violations);
   for (const key of ["fields", "metrics", "filters", "queries", "exports", "actions"]) {
     if (!isStringArray(value[key])) violations.push(`${key} must be an array of strings`);
   }
   if (!Array.isArray(value.resources)) violations.push("resources must be an array");
   else for (const resource of value.resources) {
-    if (!isRecord(resource) || typeof resource.name !== "string" || !isStringArray(resource.fields)) {
-      violations.push("each resource needs a name and a string field list");
+    if (!isRecord(resource) || typeof resource.name !== "string" || resource.name.length === 0
+        || !isStringArray(resource.fields)) {
+      violations.push("each resource needs a non-empty name and a string field list");
     }
   }
   if (!Array.isArray(value.relationships)) violations.push("relationships must be an array");
@@ -99,6 +115,7 @@ export function validateCapabilityManifest(value: unknown, requestId?: string): 
 export function validateActionDeclaration(value: unknown, requestId?: string): ActionDeclaration {
   if (!isRecord(value)) fail("MALFORMED_MANIFEST", ["declaration must be an object"], requestId);
   const violations: string[] = [];
+  rejectUnknownKeys(value, ACTION_FIELDS, violations);
 
   for (const field of ACTION_FIELDS) {
     if (value[field] === undefined) violations.push(`missing ${field}`);
@@ -107,8 +124,10 @@ export function validateActionDeclaration(value: unknown, requestId?: string): A
   if (value.id !== undefined && (typeof value.id !== "string" || !ACTION_ID.test(value.id))) {
     violations.push("id must be stable dotted lowercase");
   }
-  if (value.version !== undefined && (!isRecord(value.version) || !Number.isInteger(value.version.major))) {
-    violations.push("version must declare an integer major");
+  if (value.version !== undefined && (!isRecord(value.version) || !Number.isInteger(value.version.major)
+      || (value.version.major as number) < 1 || !Number.isInteger(value.version.minor)
+      || (value.version.minor as number) < 0)) {
+    violations.push("version must declare a positive integer major and a non-negative minor");
   }
   for (const shape of ["input", "output"] as const) {
     const schema = value[shape];
@@ -129,8 +148,9 @@ export function validateActionDeclaration(value: unknown, requestId?: string): A
   if (value.scope !== undefined) {
     if (!Array.isArray(value.scope) || value.scope.length === 0) violations.push("scope must be a non-empty array");
     else for (const entry of value.scope) {
-      if (!isRecord(entry) || typeof entry.kind !== "string" || typeof entry.value !== "string") {
-        violations.push("each scope needs a kind and a value"); continue;
+      if (!isRecord(entry) || typeof entry.kind !== "string"
+          || typeof entry.value !== "string" || entry.value.length === 0) {
+        violations.push("each scope needs a kind and a non-empty value"); continue;
       }
       if (FORBIDDEN_SCOPE_KINDS.includes(entry.kind.toLowerCase())) {
         violations.push(`forbidden scope kind ${entry.kind}: actions may only target records`);
@@ -142,8 +162,11 @@ export function validateActionDeclaration(value: unknown, requestId?: string): A
 
   if (value.preview !== undefined) {
     const preview = value.preview;
-    if (!isRecord(preview) || typeof preview.required !== "boolean" || typeof preview.effectSummary !== "string") {
-      violations.push("preview must declare required and a human-readable effectSummary");
+    if (!isRecord(preview) || typeof preview.required !== "boolean"
+        || typeof preview.effectSummary !== "string" || preview.effectSummary.trim().length === 0) {
+      // An empty summary defeats the purpose: preview exists so a human can read what the
+      // action will do before confirming it.
+      violations.push("preview must declare required and a non-empty human-readable effectSummary");
     } else if (RISKS.indexOf(value.risk as ActionRisk) > 0 && preview.required !== true) {
       violations.push(`${String(value.risk)} actions must require preview`);
     }

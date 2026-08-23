@@ -51,6 +51,29 @@ test("manifests fail closed on version, shape and signature with stable codes", 
   }
 });
 
+test("manifest collections are shape-checked when present", () => {
+  for (const key of ["fields", "metrics", "filters", "queries", "exports", "actions"]) {
+    assert.throws(() => validateCapabilityManifest({ ...manifest, [key]: "orders.total" }),
+      CapabilityContractError, `${key} accepted a bare string`);
+    assert.throws(() => validateCapabilityManifest({ ...manifest, [key]: [42] }),
+      CapabilityContractError, `${key} accepted a non-string member`);
+  }
+  // Clear relationships first: they name declared resources, so replacing `resources`
+  // would trip the relationship check and mask the resource-shape check entirely.
+  const noRelations = { ...manifest, relationships: [] };
+  for (const resources of ["orders", [42], [{ name: "orders" }], [{ fields: ["id"] }],
+                           [{ name: 42, fields: ["id"] }], [{ name: "orders", fields: "id" }],
+                           [{ name: "orders", fields: [42] }]]) {
+    assert.throws(() => validateCapabilityManifest({ ...noRelations, resources }),
+      CapabilityContractError, `accepted resources ${JSON.stringify(resources)}`);
+  }
+  validateCapabilityManifest({ ...noRelations, resources: [{ name: "orders", fields: ["id"] }] });
+  for (const relationships of ["x", [42], [{ from: "orders", to: "suppliers" }], [{ name: 42, from: "orders", to: "suppliers" }]]) {
+    assert.throws(() => validateCapabilityManifest({ ...manifest, relationships }),
+      CapabilityContractError, `accepted relationships ${JSON.stringify(relationships)}`);
+  }
+});
+
 test("relationships must resolve to declared resources", () => {
   assert.throws(() => validateCapabilityManifest({
     ...manifest, relationships: [{ name: "ghost", from: "orders", to: "not_declared" }]
@@ -90,6 +113,52 @@ test("risk, mode, batch, timeout and retry are constrained", () => {
   assert.throws(() => validateActionDeclaration({ ...clone(), retry: { classification: "maybe" } }), CapabilityContractError);
 });
 
+test("each action field is validated when present, not merely required", () => {
+  // The missing-field loop above covers absence. These probes supply a present-but-invalid
+  // value, which is the only way to exercise the validity checks themselves.
+  const bad: Array<[string, unknown]> = [
+    ["id", "Not An Id"], ["id", "notdotted"], ["id", "../../etc/passwd"], ["id", ""], ["id", 42],
+    ["version", { major: 1.5, minor: 0 }], ["version", { minor: 0 }], ["version", "1.0"],
+    ["input", "object"], ["input", { type: "array", properties: {} }], ["input", { type: "object" }],
+    ["output", 42],
+    ["permissions", "orders.write"], ["permissions", [42]],
+    ["audit", { fields: "orderId" }], ["audit", []],
+    ["redaction", { fields: 42 }]
+  ];
+  for (const [field, value] of bad) {
+    assert.throws(() => validateActionDeclaration({ ...clone(), [field]: value }),
+      CapabilityContractError, `${field} accepted ${JSON.stringify(value)}`);
+  }
+});
+
+test("scope entries are shape-checked and unknown kinds are refused", () => {
+  for (const scope of [[{ kind: "resource" }], [{ value: "orders" }], ["orders"], [42], [{ kind: 42, value: "x" }]]) {
+    assert.throws(() => validateActionDeclaration({ ...clone(), scope }),
+      CapabilityContractError, `accepted scope ${JSON.stringify(scope)}`);
+  }
+  // A kind that is neither allowed nor on the forbidden list must still be refused:
+  // the allow-list is the contract, not the deny-list.
+  assert.throws(() => validateActionDeclaration({ ...clone(), scope: [{ kind: "galaxy", value: "x" }] }),
+    CapabilityContractError, "unknown scope kind accepted");
+});
+
+test("preview, idempotency and concurrency are validated when present", () => {
+  for (const preview of [{ required: "yes", effectSummary: "x" }, { required: true }, { effectSummary: "x" }, "required", { required: true, effectSummary: "" }]) {
+    assert.throws(() => validateActionDeclaration({ ...clone(), preview }),
+      CapabilityContractError, `accepted preview ${JSON.stringify(preview)}`);
+  }
+  for (const idempotency of [{ keyRule: "guessed", windowSeconds: 60 }, { keyRule: "derived", windowSeconds: 0 },
+                             { keyRule: "derived", windowSeconds: -1 }, { keyRule: "derived", windowSeconds: 1.5 },
+                             { keyRule: "derived" }, "client-supplied"]) {
+    assert.throws(() => validateActionDeclaration({ ...clone(), idempotency }),
+      CapabilityContractError, `accepted idempotency ${JSON.stringify(idempotency)}`);
+  }
+  for (const concurrency of [{ optimisticToken: "Not A Field" }, { optimisticToken: "" }, { optimisticToken: 42 }, {}, "version"]) {
+    assert.throws(() => validateActionDeclaration({ ...clone(), concurrency }),
+      CapabilityContractError, `accepted concurrency ${JSON.stringify(concurrency)}`);
+  }
+});
+
 test("a risky action cannot opt out of preview", () => {
   assert.throws(() => validateActionDeclaration({
     ...clone(), risk: "high-impact", preview: { required: false, effectSummary: "x" }
@@ -119,6 +188,19 @@ test("action execution is disabled and the package ships no transport", async ()
       assert.doesNotMatch(source, pattern, `${name} contains transport or DOM access (${String(pattern)})`);
     }
   }
+});
+
+test("the validators agree with the schemas on unknown keys, bounds and minimums", () => {
+  assert.throws(() => validateActionDeclaration({ ...clone(), extra: 1 }), CapabilityContractError, "unknown action key accepted");
+  assert.throws(() => validateCapabilityManifest({ ...manifest, extra: 1 }), CapabilityContractError, "unknown manifest key accepted");
+  for (const version of [{ major: 0, minor: 0 }, { major: 1, minor: -1 }]) {
+    assert.throws(() => validateActionDeclaration({ ...clone(), version }), CapabilityContractError, `action accepted ${JSON.stringify(version)}`);
+    assert.throws(() => validateCapabilityManifest({ ...manifest, contractVersion: version }), CapabilityContractError, `manifest accepted ${JSON.stringify(version)}`);
+  }
+  assert.throws(() => validateActionDeclaration({ ...clone(), scope: [{ kind: "resource", value: "" }] }),
+    CapabilityContractError, "empty scope value accepted");
+  assert.throws(() => validateCapabilityManifest({ ...manifest, relationships: [], resources: [{ name: "", fields: [] }] }),
+    CapabilityContractError, "empty resource name accepted");
 });
 
 test("published schemas mirror the validators", async () => {
