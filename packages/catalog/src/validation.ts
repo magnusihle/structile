@@ -14,6 +14,12 @@ const MAX_SLOT_CHILDREN = 256;
 const MAX_STATIC_WEIGHT = 100;
 const MAX_ROWS = 10_000;
 
+/**
+ * Duplicated per package on purpose. `architecture/package-boundaries.json` fixes the
+ * thirteen package names and ARCH-001 asserts that exact list, so there is no shared
+ * utility package to host this; importing it across packages would add dependency edges
+ * between contract packages to save three lines. Keep the implementations identical.
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -39,12 +45,21 @@ function validateProps(value: unknown, violations: string[]): void {
   }
 }
 
+const REGISTRATION_KEYS: readonly string[] = Object.freeze([
+  "id", "version", "props", "slots", "states", "accessibility", "dataNeeds", "permissions", "cost"
+]);
+
 /** Validate one registration against every DS-003 obligation. */
 export function validateRegistration(value: unknown): ComponentRegistration {
   if (!isRecord(value)) throw new CatalogError(["registration must be an object"]);
   const violations: string[] = [];
 
-  for (const field of ["id", "version", "props", "slots", "states", "accessibility", "dataNeeds", "permissions", "cost"]) {
+  // The published schema sets additionalProperties:false; the validator must agree, or a
+  // schema-driven implementation in another language rejects what this one accepts.
+  for (const key of Object.keys(value)) {
+    if (!REGISTRATION_KEYS.includes(key)) violations.push(`unknown property ${key}`);
+  }
+  for (const field of REGISTRATION_KEYS) {
     if (value[field] === undefined) violations.push(`missing ${field}`);
   }
 
@@ -53,8 +68,9 @@ export function validateRegistration(value: unknown): ComponentRegistration {
   }
   if (value.version !== undefined) {
     const version = value.version;
-    if (!isRecord(version) || !Number.isInteger(version.major) || !Number.isInteger(version.minor)) {
-      violations.push("version must declare integer major and minor");
+    if (!isRecord(version) || !Number.isInteger(version.major) || !Number.isInteger(version.minor)
+        || (version.major as number) < 1 || (version.minor as number) < 0) {
+      violations.push("version must declare a positive integer major and a non-negative integer minor");
     }
   }
   if (value.props !== undefined) validateProps(value.props, violations);
@@ -77,8 +93,11 @@ export function validateRegistration(value: unknown): ComponentRegistration {
   if (value.states !== undefined) {
     if (!Array.isArray(value.states)) violations.push("states must be an array");
     else {
+      const seenStates = new Set<string>();
       for (const state of value.states) {
-        if (typeof state !== "string" || !STATES.has(state)) violations.push(`unknown state ${String(state)}`);
+        if (typeof state !== "string" || !STATES.has(state)) { violations.push(`unknown state ${String(state)}`); continue; }
+        if (seenStates.has(state)) violations.push(`duplicate state ${state}`);
+        seenStates.add(state);
       }
       for (const required of ["loading", "error", "ready"] satisfies ComponentState[]) {
         if (!value.states.includes(required)) violations.push(`states must include ${required}`);

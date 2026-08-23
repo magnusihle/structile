@@ -61,6 +61,26 @@ test("prototype pollution is rejected wherever it appears", () => {
   assert.equal(({} as Record<string, unknown>).polluted, undefined, "Object.prototype was polluted");
 });
 
+test("pollution inside a declared prop value is rejected", () => {
+  // Neither additionalProperties nor the unknown-prop check reaches inside the *value* of a
+  // declared prop, so this path is covered by the deep scan alone. Probing only the page or
+  // node level would let the scan be deleted unnoticed.
+  const deep = buildCatalog([
+    { ...registration("core.deep", { config: "object" }), props: { type: "object", additionalProperties: false,
+      properties: { config: { type: "object" } }, required: ["config"] } }
+  ]);
+  const control = JSON.parse(
+    `{"specVersion":{"major":1,"minor":0},"id":"app.x","title":"T","pages":[{"id":"home","path":"/","nodes":[{"componentId":"core.deep","props":{"config":{"safe":1}},"slots":{}}]}]}`);
+  validateSpecification(control, { catalog: deep });
+  for (const key of ["__proto__", "constructor", "prototype"]) {
+    const poisoned = JSON.parse(
+      `{"specVersion":{"major":1,"minor":0},"id":"app.x","title":"T","pages":[{"id":"home","path":"/","nodes":[{"componentId":"core.deep","props":{"config":{${JSON.stringify(key)}:{"isAdmin":true}}},"slots":{}}]}]}`);
+    assert.throws(() => validateSpecification(poisoned, { catalog: deep }), SpecificationError,
+      `${key} nested in a prop value was accepted`);
+  }
+  assert.equal(({} as Record<string, unknown>).isAdmin, undefined, "Object.prototype was polluted");
+});
+
 test("code, markup, template, SQL and URL payloads are rejected", () => {
   for (const payload of ["<script>x</script>", "<b>x</b>", "javascript:x", "data:text/html,x", "onload=x",
                          "expression(1)", "url(x)", "{{x}}", "1; DROP TABLE t --",
@@ -71,10 +91,74 @@ test("code, markup, template, SQL and URL payloads are rejected", () => {
 });
 
 test("non-data values are rejected with a typed error, not a raw TypeError", () => {
-  for (const value of [() => 1, Symbol("x"), BigInt(1)]) {
-    const poisoned = clone(); poisoned.title = value;
-    assert.throws(() => validateSpecification(poisoned, { catalog }), SpecificationError);
+  // In props, not title: `title` has its own must-be-a-string check that would mask this.
+  for (const value of [() => 1, Symbol("x"), BigInt(1), Number.POSITIVE_INFINITY, Number.NaN]) {
+    const poisoned = clone(); poisoned.pages[0].nodes[0].props.label = value;
+    assert.throws(() => validateSpecification(poisoned, { catalog }), SpecificationError, `accepted ${String(value)}`);
   }
+});
+
+test("an over-long string is rejected even when the document is small", () => {
+  // Many short strings would trip maxBytes instead; one long string isolates the string bound.
+  const poisoned = clone();
+  poisoned.pages[0].nodes[0].props.label = "a".repeat(5_000);
+  assert.ok(JSON.stringify(poisoned).length < LIMITS.maxBytes, "probe must stay under maxBytes");
+  assert.throws(() => validateSpecification(poisoned, { catalog }), SpecificationError);
+});
+
+test("node, props and slot shapes are validated", () => {
+  const notANode = clone(); notANode.pages[0].nodes = ["core.kpi"];
+  assert.throws(() => validateSpecification(notANode, { catalog }), SpecificationError, "non-object node accepted");
+  const badProps = clone(); badProps.pages[0].nodes[0].props = "label";
+  assert.throws(() => validateSpecification(badProps, { catalog }), SpecificationError, "non-object props accepted");
+  const badSlots = clone(); badSlots.pages[0].nodes[0].slots = [];
+  assert.throws(() => validateSpecification(badSlots, { catalog }), SpecificationError, "non-object slots accepted");
+  // Children are otherwise valid, so exceeding the declared bound is the only defect.
+  const child = { componentId: "core.kpi", props: { label: "a", metric: "b" }, slots: {} };
+  const withinBound = clone();
+  withinBound.pages[0].nodes = [{ componentId: "core.stack", props: {}, slots: { content: Array.from({ length: 32 }, () => child) } }];
+  validateSpecification(withinBound, { catalog });
+  const overfull = clone();
+  overfull.pages[0].nodes = [{ componentId: "core.stack", props: {}, slots: { content: Array.from({ length: 33 }, () => child) } }];
+  assert.throws(() => validateSpecification(overfull, { catalog }), SpecificationError, "slot maxChildren not enforced");
+});
+
+test("page shape and identity are validated", () => {
+  const notAPage = clone(); notAPage.pages = ["home"];
+  assert.throws(() => validateSpecification(notAPage, { catalog }), SpecificationError, "non-object page accepted");
+  const badId = clone(); badId.pages[0].id = "Not An Id";
+  assert.throws(() => validateSpecification(badId, { catalog }), SpecificationError, "invalid page id accepted");
+  const badPath = clone(); badPath.pages[0].path = "no-leading-slash";
+  assert.throws(() => validateSpecification(badPath, { catalog }), SpecificationError, "invalid route accepted");
+  for (const title of [undefined, "", 42]) {
+    const bad = clone(); bad.title = title;
+    assert.throws(() => validateSpecification(bad, { catalog }), SpecificationError, `accepted title ${String(title)}`);
+  }
+});
+
+test("a specification that cannot be serialised is rejected as a SpecificationError", () => {
+  const cyclic = clone();
+  cyclic.pages[0].nodes[0].props.label = cyclic;
+  assert.throws(() => validateSpecification(cyclic, { catalog }), SpecificationError);
+});
+
+test("the static cost budget is enforced", () => {
+  // maxNodes x the default weight never reaches maxCost, so the earlier version of this
+  // test could not fire at all. Use a deliberately expensive component instead.
+  const costly = buildCatalog([
+    registration("core.kpi", { label: "string", metric: "string" }),
+    { ...registration("core.heavy", { label: "string" }), cost: { staticWeight: 100, maxRows: 100 } }
+  ]);
+  const needed = Math.ceil(LIMITS.maxCost / 100) + 1;
+  assert.ok(needed <= LIMITS.maxNodes, "the cost ceiling must be reachable within maxNodes");
+  const doc = clone();
+  doc.pages[0].nodes = Array.from({ length: needed },
+    () => ({ componentId: "core.heavy", props: { label: "a" }, slots: {} }));
+  assert.throws(() => validateSpecification(doc, { catalog: costly }), SpecificationError, "maxCost not enforced");
+  const under = clone();
+  under.pages[0].nodes = Array.from({ length: needed - 2 },
+    () => ({ componentId: "core.heavy", props: { label: "a" }, slots: {} }));
+  validateSpecification(under, { catalog: costly });
 });
 
 test("catalog escape is rejected", () => {
@@ -102,7 +186,11 @@ test("every declared limit is enforced", () => {
     () => ({ componentId: "core.kpi", props: { label: "a", metric: "b" }, slots: {} }));
   assert.throws(() => validateSpecification(tooMany, { catalog }), SpecificationError, "maxNodes not enforced");
 
-  const tooBig = clone(); tooBig.pages[0].nodes[0].props.label = "a".repeat(LIMITS.maxBytes + 1024);
+  // Many short strings: one giant string trips the per-string bound instead, masking this.
+  const tooBig = clone();
+  tooBig.pages[0].nodes = Array.from({ length: LIMITS.maxNodes },
+    () => ({ componentId: "core.kpi", props: { label: "a".repeat(2_000), metric: "b".repeat(2_000) }, slots: {} }));
+  assert.ok(JSON.stringify(tooBig).length > LIMITS.maxBytes, "probe must actually exceed maxBytes");
   assert.throws(() => validateSpecification(tooBig, { catalog }), SpecificationError, "maxBytes not enforced");
 
   const deepProps = clone();
@@ -119,6 +207,20 @@ test("limits stay under the protected suite ceilings", () => {
     assert.ok(declared > 0 && declared <= ceiling, `LIMITS.${name} is ${declared}, above the ceiling ${ceiling}`);
   }
   assert.ok(LIMITS.maxNodes >= 100, "must be able to hold the Northstar fixture (~81 nodes)");
+});
+
+test("the validator enforces additionalProperties:false at every level", () => {
+  const app = clone(); app.extra = 1;
+  assert.throws(() => validateSpecification(app, { catalog }), SpecificationError, "unknown application key accepted");
+  const page = clone(); page.pages[0].extra = 1;
+  assert.throws(() => validateSpecification(page, { catalog }), SpecificationError, "unknown page key accepted");
+  const node = clone(); node.pages[0].nodes[0].extra = 1;
+  assert.throws(() => validateSpecification(node, { catalog }), SpecificationError, "unknown node key accepted");
+  // the optional keys the schema does declare must still be accepted
+  const optional = clone();
+  optional.themeRef = "product"; optional.pages[0].titleKey = "page.home";
+  optional.pages[0].nodes[0].queryRef = "orders.list";
+  validateSpecification(optional, { catalog });
 });
 
 test("malformed envelopes are rejected", () => {

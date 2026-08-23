@@ -44,7 +44,9 @@ test("component ids must be stable dotted lowercase", () => {
 
 test("states, accessibility and cost are constrained", () => {
   assert.throws(() => validateRegistration({ ...clone(), states: "ready" }), CatalogError);
-  assert.throws(() => validateRegistration({ ...clone(), states: ["ready", "teleporting"] }), CatalogError);
+  // Include every mandatory state, so the unknown-state check is the only one that can fire.
+  assert.throws(() => validateRegistration({ ...clone(), states: ["loading", "error", "ready", "teleporting"] }),
+    CatalogError, "unknown state accepted");
   assert.throws(() => validateRegistration({ ...clone(), states: ["empty"] }), CatalogError, "loading/error/ready are mandatory");
   assert.throws(() => validateRegistration({ ...clone(), accessibility: { role: "group", keyboard: "tab", focusOrder: "auto", labelledBy: "l" } }), CatalogError);
   assert.throws(() => validateRegistration({ ...clone(), cost: { staticWeight: "one", maxRows: 10 } }), CatalogError);
@@ -80,6 +82,61 @@ test("buildCatalog reports which entry failed", () => {
     const failure = error as CatalogError;
     assert.ok(failure.violations.some((v) => v.startsWith("[1] ")), "violations must be attributed to an index");
   }
+});
+
+test("prop schemas are validated field by field", () => {
+  assert.throws(() => validateRegistration({ ...clone(),
+    props: { type: "object", additionalProperties: false, properties: { "Bad Name": { type: "string" } } } }),
+    CatalogError, "invalid prop name accepted");
+  assert.throws(() => validateRegistration({ ...clone(),
+    props: { type: "object", additionalProperties: false, properties: { label: {} } } }),
+    CatalogError, "prop without a declared type accepted");
+});
+
+test("the accessibility contract requires every field to be non-empty", () => {
+  for (const field of ["role", "keyboard", "labelledBy"]) {
+    const a11y = { role: "group", keyboard: "tab", focusOrder: "dom", labelledBy: "label" } as Record<string, string>;
+    a11y[field] = "";
+    assert.throws(() => validateRegistration({ ...clone(), accessibility: a11y }), CatalogError, `empty ${field} accepted`);
+  }
+});
+
+test("data needs name a resource and plain fields", () => {
+  assert.throws(() => validateRegistration({ ...clone(), dataNeeds: ["orders"] }), CatalogError, "non-object dataNeed accepted");
+  assert.throws(() => validateRegistration({ ...clone(), dataNeeds: [{ resource: "", fields: ["id"] }] }), CatalogError, "empty resource accepted");
+  assert.throws(() => validateRegistration({ ...clone(), dataNeeds: [{ resource: "orders", fields: ["Not A Field"] }] }), CatalogError);
+  assert.throws(() => validateRegistration({ ...clone(), dataNeeds: [{ resource: "orders", fields: "id" }] }), CatalogError);
+});
+
+test("permissions must be dotted lowercase", () => {
+  for (const permission of ["Orders.Read", "orders read", "orders", "ORDERS.READ"]) {
+    assert.throws(() => validateRegistration({ ...clone(), permissions: [permission] }), CatalogError, `accepted ${permission}`);
+  }
+  validateRegistration({ ...clone(), permissions: ["orders.read"] });
+});
+
+test("the registration version must be integral", () => {
+  for (const version of [{ major: "1", minor: 0 }, { major: 1.5, minor: 0 }, { major: 1 }, "1.0", null]) {
+    assert.throws(() => validateRegistration({ ...clone(), version }), CatalogError, `accepted ${JSON.stringify(version)}`);
+  }
+});
+
+test("slots are bounded in number and shape", () => {
+  const many = Array.from({ length: 17 }, (_, index) => ({ name: `slot${index}`, maxChildren: 1 }));
+  assert.throws(() => validateRegistration({ ...clone(), slots: many }), CatalogError, "slot count not bounded");
+  assert.throws(() => validateRegistration({ ...clone(), slots: ["content"] }), CatalogError, "non-object slot accepted");
+  assert.throws(() => validateRegistration({ ...clone(),
+    slots: [{ name: "content", maxChildren: 1, accepts: "core.kpi" }] }), CatalogError, "non-array accepts accepted");
+  validateRegistration({ ...clone(), slots: [{ name: "content", maxChildren: 1, accepts: ["core.kpi"] }] });
+});
+
+test("the validator agrees with the schema on unknown keys, duplicates and version bounds", () => {
+  assert.throws(() => validateRegistration({ ...clone(), extra: 1 }), CatalogError, "unknown property accepted");
+  assert.throws(() => validateRegistration({ ...clone(), states: ["loading", "error", "ready", "ready"] }),
+    CatalogError, "duplicate state accepted");
+  assert.throws(() => validateRegistration({ ...clone(), version: { major: 0, minor: 0 } }),
+    CatalogError, "version.major below the schema minimum accepted");
+  assert.throws(() => validateRegistration({ ...clone(), version: { major: 1, minor: -1 } }), CatalogError);
 });
 
 test("the published schema matches the validator's required fields", async () => {

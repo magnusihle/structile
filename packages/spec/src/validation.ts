@@ -25,11 +25,32 @@ const FORBIDDEN_VALUE_PATTERNS: ReadonlyArray<readonly [string, RegExp]> = Objec
   ["scheme-relative-url", /^\/\//]
 ] as const);
 
+/**
+ * The published schemas set additionalProperties:false at every level. The validator must
+ * agree: an unknown key in stored data means the writer and this reader disagree about the
+ * grammar, and silently ignoring it is how a spec means one thing here and another there.
+ */
+const APPLICATION_KEYS: readonly string[] = Object.freeze(["specVersion", "id", "title", "pages", "themeRef"]);
+const PAGE_KEYS: readonly string[] = Object.freeze(["id", "path", "titleKey", "nodes"]);
+const NODE_KEYS: readonly string[] = Object.freeze(["componentId", "props", "slots", "queryRef", "actionRef"]);
+
+function rejectUnknownKeys(value: Record<string, unknown>, allowed: readonly string[], path: string, violations: string[]): void {
+  for (const key of Object.keys(value)) {
+    if (!allowed.includes(key)) violations.push(`${path}: unknown property ${key}`);
+  }
+}
+
 const IDENTIFIER = /^[a-z][a-z0-9]*(?:[-.][a-z0-9]+)*$/;
 const ROUTE_PATH = /^\/[A-Za-z0-9\-/]*$/;
 const MAX_STRING_LENGTH = 4_096;
 const UTF8 = new TextEncoder();
 
+/**
+ * Duplicated per package on purpose. `architecture/package-boundaries.json` fixes the
+ * thirteen package names and ARCH-001 asserts that exact list, so there is no shared
+ * utility package to host this; importing it across packages would add dependency edges
+ * between contract packages to save three lines. Keep the implementations identical.
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -81,6 +102,7 @@ function walkNodes(
     state.nodes += 1;
     if (state.nodes > LIMITS.maxNodes) { violations.push(`${at}: exceeds maxNodes`); return; }
     if (!isRecord(node)) { violations.push(`${at}: node must be an object`); continue; }
+    rejectUnknownKeys(node, NODE_KEYS, at, violations);
 
     const registration = typeof node.componentId === "string" ? catalog.get(node.componentId) : undefined;
     if (!registration) { violations.push(`${at}: unknown componentId ${String(node.componentId)}`); continue; }
@@ -154,6 +176,7 @@ export function validateSpecification(value: unknown, options: ValidateOptions):
   for (const key of POLLUTION_KEYS) {
     if (Object.hasOwn(value, key)) violations.push(`${key}: prototype pollution`);
   }
+  rejectUnknownKeys(value, APPLICATION_KEYS, "$", violations);
   scanData(value, "$", 0, violations);
 
   try {
@@ -173,6 +196,7 @@ export function validateSpecification(value: unknown, options: ValidateOptions):
     for (const [index, page] of value.pages.entries()) {
       const at = `$.pages[${index}]`;
       if (!isRecord(page)) { violations.push(`${at}: page must be an object`); continue; }
+      rejectUnknownKeys(page, PAGE_KEYS, at, violations);
       if (typeof page.id !== "string" || !IDENTIFIER.test(page.id)) violations.push(`${at}: invalid page id`);
       if (typeof page.path !== "string" || !ROUTE_PATH.test(page.path)) violations.push(`${at}: invalid route path`);
       else {
