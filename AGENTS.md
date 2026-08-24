@@ -2,7 +2,7 @@
 
 ## Scope
 
-Implement G0/v0.1 only until a human explicitly assigns a later gate. Read `docs/planning/decisions-and-assumptions.md`, `docs/planning/architecture.md`, `docs/planning/security-threat-model.md`, and `docs/planning/release-gates.md` before implementation work.
+Implement G0/v0.1 only until a human explicitly assigns a later gate. Read `docs/planning/decisions-and-assumptions.md` (the hash-locked local copy) and, in the canonical planning repository <https://github.com/magnusihle/structile-planning>, `docs/architecture.md`, `docs/security-threat-model.md` and `docs/release-gates.md` before implementation work. `docs/planning/README.md` explains the pinning.
 
 ## Protected inputs
 
