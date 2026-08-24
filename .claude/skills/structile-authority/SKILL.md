@@ -31,9 +31,21 @@ requirements/waivers.json           .github/CODEOWNERS
 policies/agent/**
 ```
 
-Protected **conformance suite source** in `structile-conformance` is equally off limits: it may
-only be authored or changed through a human-owned PR. Draft it as a reviewable proposal under
-`workspaces/*-proposal/` and hand it over; never commit it yourself.
+**You may open pull requests in `structile-conformance`.** Root `AGENTS.md` says plainly:
+"Agents may create implementation branches, commits and pull requests." That includes
+conformance suite source. `main` is ruleset-protected — pull request, CODEOWNER review,
+linear history — so review cannot be bypassed whatever you do. Branch, commit, push, open
+the PR, and stop there.
+
+Do **not** generalise this into a prohibition. An earlier reading of this file wrongly
+extended a narrow rule to all conformance source and stalled delivery until a human
+overruled it. The narrow rule is only this: the G0 **verifier and release-signing** files —
+`Containerfile`, `src/protected-g0-probe.ts`, `src/protected-meta-evidence.ts` and
+`.github/workflows/protected-g0-verifier.yml` — are human-authored, because they are the
+machinery that produces and signs evidence about your own work.
+
+The separation that matters is that you never merge and never sign. It is not that you
+never type.
 
 A mismatch between the plan and reality is a specification checkpoint, not licence to
 reinterpret. Stop and ask.
@@ -66,9 +78,13 @@ conformance authority `d6a58deb1fabb539b6f7d9fd930512ade3522611`, runner
 `sha256:c3732dc2fe1991f9b26e5107a311744507f8a34e67bb646dcbee9adb4ffd290c`. Six envelopes,
 both Sigstore attestations verified.
 
-G1 is **not** passed. Four of its ten suites exist only as an unmerged proposal
-(`workspaces/g1-protected-suites-proposal/`); PKG-001, A11Y-001, SPEC-002, SEC-005, HAR-002 and
-HAR-004 are unimplemented.
+G1 is **not** passed. Seven of its ten protected suites are open for review as
+`structile-conformance#3` (DS-001, SPEC-001, SPEC-002, CAP-001, ACT-001, PKG-001, HAR-004);
+A11Y-001, SEC-005 and HAR-002 remain unimplemented and fail closed with exit 2. The G1
+tranche packages — tokens, catalog, spec, capability-sdk — are merged into core `main` and
+are unevidenced until that PR merges and a protected run passes.
+
+Re-read this section rather than trusting it: it records what was true when written.
 
 ## PR requirements
 
