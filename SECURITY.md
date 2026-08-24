@@ -12,4 +12,4 @@ Structile is currently a G0/v0.1 bootstrap and is not production-certified. No r
 
 ## Security boundary
 
-The public repository contains no production credentials or customer configuration. Requirements, protected tests, evidence policy, agent authority, and release signing are controlled separately. See `docs/planning/security-threat-model.md` for the normative threat model.
+The public repository contains no production credentials or customer configuration. Requirements, protected tests, evidence policy, agent authority, and release signing are controlled separately. See `docs/security-threat-model.md` in the canonical planning repository (<https://github.com/magnusihle/structile-planning>) for the normative threat model.
