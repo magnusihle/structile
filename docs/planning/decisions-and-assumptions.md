@@ -4,52 +4,54 @@ This file records answers approved during scope discovery. Technical assumptions
 
 ## Locked product decisions
 
-| Area | Decision |
-| --- | --- |
-| Delivery | Complete v1 requirements staged across v0.1–v1.0. |
-| Authoring order | Deterministic manual/specification runtime first; AI authoring at G5. |
-| Actions | Specify the protocol now; execution begins only after read-only tenant isolation passes. |
-| Reference | Do not reuse `toll-refundering` as a code fixture. It was only a capability example. |
-| Recreation | Functional, structural and design-system parity are required. Screenshot-to-spec arrives at G5. |
-| Scale | Certify one deployed product for 1,000 tenants, 10,000 active users and 1,000 concurrent sessions. |
-| SLO | At certified load: p95 platform reads <=150 ms, writes <=300 ms, dashboard usable <=1.5 s. |
-| Authentication | Better Auth; Google and Microsoft OAuth only. No username/password or public self-signup. |
-| Provisioning | Tenants through a trusted developer/API path; membership by invite. |
-| Identity policy | A tenant may restrict Google Workspace domains or Microsoft Entra tenant IDs. |
-| Membership | One user may belong to multiple tenants. |
-| Roles | Fixed owner/admin/editor/viewer roles mapped to product-defined permissions. |
-| Publishing | Users publish personal dashboards; tenant admins publish shared dashboards. |
-| UI scope | Authenticated application, administration and settings pages. Public/SEO/embed surfaces are out of v1. |
-| UI technology | React and TypeScript are mandatory; project-specific backends may use any language. |
-| Distribution | Versioned runtime packages and component registry installed and pinned in each product. |
-| Extensions | Trusted product-specific components require code review and deployment. No tenant JavaScript. |
-| Devices | Desktop conformance only in v1. Tablet/mobile are explicitly out of scope. |
-| Localization | Locale-aware dates, numbers, currencies/time zones; product translation catalogs and switching. No RTL requirement. |
-| Branding | Product tokens, limited tenant logo/accent overrides, user light/dark mode. |
-| Compatibility | Runtime supports current and previous major UI specification versions with migration and rollback. |
-| Data exposure | Developers define the maximum capability surface; tenant admins may only restrict it. |
-| Queries | Joins only through backend-declared, authorized relationships. No raw SQL or inferred joins. |
-| Exports | Audited, permission-checked CSV/XLSX with row/byte/time limits. |
-| Privileged auth | Recent OAuth reauthentication for publishing, exports and mutations; optional upstream MFA requirement. |
-| Audit | One-year default retention, configurable from 90 days to seven years. |
-| Mutations | Risk-based preview; reauthentication for deletes, bulk and high-impact actions. |
-| Database | PostgreSQL is mandatory. Each tenant receives a separate logical database and role. |
-| Control data | One control-plane database per SaaS product; never one global database coupling all products. |
-| Cache | Redis is mandatory for caching/rate limiting but never a durable source of truth. |
-| Packaging | Docker and Docker Compose are mandatory developer/deployment artifacts. |
-| Hosting | Coolify on Hetzner; Tailscale is the private management plane. |
-| Failure target | Component, host and primary database failure recovery under five minutes. |
-| Data loss | Local primary failover targets RPO 0. |
-| Agents | Claude Code and Codex supported from day one. |
-| Agent authority | Branch and pull request only; never merge, production deploy, requirement-test edits or waiver approval. |
-| Harness runtime | Developer workstations and private self-hosted CI runners. |
-| Harness behavior | Durable resume, long-lived human interrupts, multi-agent fan-out/fan-in and persistent scheduling. |
-| AI providers | Anthropic and OpenAI behind a provider-neutral adapter. |
-| AI context | Capability metadata plus user prompt/screenshots; no live customer records by default. |
-| AI credentials | Headless sessions allowed only for private prototypes/harness. Production service credentials remain a release blocker. |
-| Observability | External telemetry disabled by default; secrets and raw customer data are prohibited from all telemetry. |
-| Open source | Design system, runtime, schemas, SDKs, reference control plane, agent harness and conformance suite. |
-| Residency | Selected independently by each SaaS product and enforced consistently across primary, replicas, backups and logs. |
+The `Why` column cites rationale recorded elsewhere in this package; `Not recorded.` marks decisions approved without a written reason, which is itself information.
+
+| Area | Decision | Why |
+| --- | --- | --- |
+| Delivery | Complete v1 requirements staged across v0.1–v1.0. | Each gate makes the next falsifiable (`docs/release-gates.md`). |
+| Authoring order | Deterministic manual/specification runtime first; AI authoring at G5. | AI cannot hide gaps in an unproven runtime (`docs/release-gates.md`, gate rule 6). |
+| Actions | Specify the protocol now; execution begins only after read-only tenant isolation passes. | Freezes the contract early, bounds write blast radius (`docs/release-gates.md`). |
+| Reference | Do not reuse `toll-refundering` as a code fixture. It was only a capability example. | Reference fixture rule (`docs/release-gates.md`). |
+| Recreation | Functional, structural and design-system parity are required. Screenshot-to-spec arrives at G5. | Parity is the falsifiable definition of platform sufficiency (`verification/reference-fixture.md`). |
+| Scale | Certify one deployed product for 1,000 tenants, 10,000 active users and 1,000 concurrent sessions. | Not recorded; exact cluster caps come from benchmarks before G6 (below). |
+| SLO | At certified load: p95 platform reads <=150 ms, writes <=300 ms, dashboard usable <=1.5 s. | Certified under the protected performance profile (`verification/test-strategy.md`). |
+| Authentication | Better Auth; Google and Microsoft OAuth only. No username/password or public self-signup. | Removes credential attack surface; provider verified (`docs/research-sources.md`, `docs/security-threat-model.md`). |
+| Provisioning | Tenants through a trusted developer/API path; membership by invite. | Prevents unvetted tenants and signup abuse (`docs/security-threat-model.md`). |
+| Identity policy | A tenant may restrict Google Workspace domains or Microsoft Entra tenant IDs. | Identity and authorization invariants (`docs/security-threat-model.md`). |
+| Membership | One user may belong to multiple tenants. | Not recorded. |
+| Roles | Fixed owner/admin/editor/viewer roles mapped to product-defined permissions. | Fixed roles keep platform authorization decidable (`docs/architecture.md`). |
+| Publishing | Users publish personal dashboards; tenant admins publish shared dashboards. | Not recorded. |
+| UI scope | Authenticated application, administration and settings pages. Public/SEO/embed surfaces are out of v1. | Not recorded. |
+| UI technology | React and TypeScript are mandatory; project-specific backends may use any language. | One certified frontend stack; backend freedom via the capability adapter (`docs/architecture.md`). |
+| Distribution | Versioned runtime packages and component registry installed and pinned in each product. | Pinned versions make N/N-1 and conformance reproducible (`docs/architecture.md`). |
+| Extensions | Trusted product-specific components require code review and deployment. No tenant JavaScript. | Extension rule (`docs/responsibility-boundaries.md`). |
+| Devices | Desktop conformance only in v1. Tablet/mobile are explicitly out of scope. | Not recorded. |
+| Localization | Locale-aware dates, numbers, currencies/time zones; product translation catalogs and switching. No RTL requirement. | Not recorded. |
+| Branding | Product tokens, limited tenant logo/accent overrides, user light/dark mode. | Not recorded. |
+| Compatibility | Runtime supports current and previous major UI specification versions with migration and rollback. | Truthful released-majors-only matrix; no synthetic history (`requirements/requirements.json` SPEC-002). |
+| Data exposure | Developers define the maximum capability surface; tenant admins may only restrict it. | Admins restricting, never expanding, keeps the surface developer-audited (`docs/architecture.md`). |
+| Queries | Joins only through backend-declared, authorized relationships. No raw SQL or inferred joins. | Injection and exfiltration controls (`docs/security-threat-model.md`). |
+| Exports | Audited, permission-checked CSV/XLSX with row/byte/time limits. | Exports are the easiest bulk-exfiltration path (`docs/security-threat-model.md`). |
+| Privileged auth | Recent OAuth reauthentication for publishing, exports and mutations; optional upstream MFA requirement. | Identity invariants (`docs/security-threat-model.md`). |
+| Audit | One-year default retention, configurable from 90 days to seven years. | Audit policy (`docs/security-threat-model.md`); exact defaults not recorded. |
+| Mutations | Risk-based preview; reauthentication for deletes, bulk and high-impact actions. | Threat-to-control mapping (`docs/security-threat-model.md`). |
+| Database | PostgreSQL is mandatory. Each tenant receives a separate logical database and role. | Tenant database topology, provisional (below). |
+| Control data | One control-plane database per SaaS product; never one global database coupling all products. | Avoids one blast radius coupling every product (`docs/architecture.md`). |
+| Cache | Redis is mandatory for caching/rate limiting but never a durable source of truth. | A cache that becomes truth escapes backup and audit guarantees (`docs/architecture.md`). |
+| Packaging | Docker and Docker Compose are mandatory developer/deployment artifacts. | Frozen, reproducible deployment contract (`docs/architecture.md`). |
+| Hosting | Coolify on Hetzner; Tailscale is the private management plane. | Verified sources and cautions (`docs/research-sources.md`). |
+| Failure target | Component, host and primary database failure recovery under five minutes. | Disaster recovery, provisional (below). |
+| Data loss | Local primary failover targets RPO 0. | Disaster recovery, provisional (below). |
+| Agents | Claude Code and Codex supported from day one. | Not recorded. |
+| Agent authority | Branch and pull request only; never merge, production deploy, requirement-test edits or waiver approval. | Evidence must never be produced by the hands it judges (`HANDOFF.md`, `docs/security-threat-model.md`). |
+| Harness runtime | Developer workstations and private self-hosted CI runners. | Trusted execution environments (`docs/agent-harness.md`). |
+| Harness behavior | Durable resume, long-lived human interrupts, multi-agent fan-out/fan-in and persistent scheduling. | Accepted with mandatory spike (`docs/adr-001-langgraph.md`). |
+| AI providers | Anthropic and OpenAI behind a provider-neutral adapter. | Provider neutrality avoids single-vendor lock at the contract layer (`docs/architecture.md`). |
+| AI context | Capability metadata plus user prompt/screenshots; no live customer records by default. | Least-privilege model context (`docs/security-threat-model.md`, `verification/ai-evaluation-plan.md`). |
+| AI credentials | Headless sessions allowed only for private prototypes/harness. Production service credentials remain a release blocker. | Explicitly unresolved (below). |
+| Observability | External telemetry disabled by default; secrets and raw customer data are prohibited from all telemetry. | Telemetry as an exfiltration channel (`docs/security-threat-model.md`). |
+| Open source | Design system, runtime, schemas, SDKs, reference control plane, agent harness and conformance suite. | License and boundary reasoning (`docs/open-source-governance.md`). |
+| Residency | Selected independently by each SaaS product and enforced consistently across primary, replicas, backups and logs. | Not recorded. |
 
 ## Planner decisions made from uncertainty
 
