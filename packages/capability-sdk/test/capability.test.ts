@@ -162,7 +162,7 @@ test("preview, idempotency and concurrency are validated when present", () => {
 });
 
 test("no action can opt out of preview, whatever its risk", () => {
-  // architecture.md: "Normal updates require preview and confirmation." Preview is the
+  // Canonical architecture.md (structile-planning): "Normal updates require preview and confirmation." Preview is the
   // confirmation step for every mutation, not an escalation for risky ones.
   for (const risk of ["normal", "destructive", "bulk", "high-impact"]) {
     const batch = risk === "bulk" ? 10 : 1;
