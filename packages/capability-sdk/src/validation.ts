@@ -168,7 +168,7 @@ export function validateActionDeclaration(value: unknown, requestId?: string): A
       // action will do before confirming it.
       violations.push("preview must declare required and a non-empty human-readable effectSummary");
     } else if (preview.required !== true) {
-      // `docs/planning/architecture.md`: "Normal updates require preview and confirmation."
+      // Canonical `docs/architecture.md` (structile-planning): "Normal updates require preview and confirmation."
       // Preview is not a severity escalation - it is the confirmation step for every
       // mutation. Risk decides whether recent reauthentication is *additionally* required.
       violations.push("every action must require preview; risk decides whether reauthentication is also required");
