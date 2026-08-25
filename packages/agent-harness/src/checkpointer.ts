@@ -64,6 +64,12 @@ export class PostgresCheckpointer implements Checkpointer {
     `);
   }
 
+  /**
+   * `state` is serialized with JSON.stringify: undefined-valued properties
+   * are dropped, Date instances come back as ISO strings, and numbers carry
+   * only JS double precision. Callers needing richer types (bigints,
+   * Maps/Sets, exact decimals, etc.) must encode them explicitly first.
+   */
   async saveCheckpoint(workflowId: string, node: string, state: unknown): Promise<void> {
     const client = await this.pool.connect();
     try {

@@ -7,6 +7,12 @@ import { PostgresCheckpointer, readPostgresConnectionConfig } from "../dist/inde
 // convention (see the task contract's compose step); they never run against
 // a mock. Skip, rather than fail, when that infrastructure was not provisioned
 // for this run — matching the existing platform-conditional skip idiom below.
+// Unlike that skip, which is conditional and still runs in most CI, this one
+// is unconditional in candidate CI: ci.yml provisions no postgres, so this
+// file always skips there. These tests run for real locally, via the task
+// contract's own compose step, and will gain gate-relevant coverage from the
+// protected HARD-001 drill once that lands — a green candidate CI run does
+// not exercise this file.
 const skip = process.env.STRUCTILE_POSTGRES_PASSWORD_FILE
   ? false
   : "STRUCTILE_POSTGRES_PASSWORD_FILE not set; bring up postgres per the task contract's compose step first";
