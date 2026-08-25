@@ -86,3 +86,33 @@ Development agents run default-deny with role-specific allowlists. GitHub, pinne
 | Final cross-location RPO/RTO | Adopt provisional target only after a full-location drill and cost review. |
 | Runtime secret provider | Select after a v0.2 security spike; interface and behavioral requirements are fixed. |
 
+
+## Amendments — CP-003 (ruled 2026-08-25)
+
+The locked decisions above remain the full-platform record; nothing is deleted from it.
+Where the following ruled amendments conflict with a row above, the amendment governs.
+`docs/specification-checkpoint-cp-003-dashboard-wedge.md` is normative;
+`docs/wedge-plan.md` is the operative summary.
+
+| Area | Amendment |
+| --- | --- |
+| Delivery | The v0.1–v1.0 staging is re-cut into Track A (wedge: G1 → G3′ → G4′ → G5′-text) followed by Track B (G2 → G4A → G6A → G5B/G6 → v1.0). |
+| Product | The first shipped product is embedded analytics (dashboards) in two deployment profiles — embedded and overlay (`docs/product.md`, `docs/deployment-profiles.md`). |
+| Authoring order | Deterministic-before-AI becomes build order within the wedge release (gate rule 6 amendment); wedge v1 ships with text prompting included. |
+| Identity | The overlay profile adds a thin OIDC/Entra SSO shim issuing the `CAP-003` principal for a single organization; the Better Auth reference issuer, invitations and tenancy remain Track B (CP-003 §3.2 `AUTH-001` boundary note). |
+| Exports | The wedge ships bounded synchronous CSV only (`EXP-003` plus a capped `EXP-001` subset); XLSX and the async lifecycle move to Track B. |
+| Specifications | No free-form expressions, ever; computed values exist only as backend-declared measures. |
+| Integrations | No connector catalog ships; integrations are developer-built capability adapters, and multi-system federation happens only through backend-declared relationships (`QRY-002`). |
+| Surfaces | The kernel is surface-neutral; an MCP Apps/A2UI chat-surface adapter is the committed second render target after wedge v1. |
+
+Unchanged by CP-003: the authenticated desktop scope (application, administration and
+settings pages; public/tablet/mobile surfaces remain out of scope), the Better Auth
+Google/Microsoft OAuth decision, the PostgreSQL and Redis mandates, the Apache-2.0
+boundary, and every agent-authority rule.
+
+> **Hash-lock notice.** This file is pinned in `structile`'s
+> `architecture/planning-inputs.lock.json` and read by the protected ARCH-001 suite.
+> After this amendment merges, the pin must be regenerated
+> (`node tooling/sync-planning-inputs.mjs structile`) and landed in `structile` as a
+> specification-checkpoint PR that only the human authority merges. Until that sync
+> lands, `--check` will correctly report drift.

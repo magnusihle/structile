@@ -1,8 +1,8 @@
 {
   "source": "https://github.com/magnusihle/structile-planning",
-  "sourceCommit": "e1329d315c88a77b424836cf2b0de2be23c441af",
+  "sourceCommit": "6bc1ea3ef20fb3ab9d30a7ef68aa0ee49ab3de53",
   "files": {
-    "docs/planning/decisions-and-assumptions.md": "03d8f32d379c40cf093b8d080c48c9300d05c3488d4c104f7632f2f83c72f8cf",
+    "docs/planning/decisions-and-assumptions.md": "5baa13045fd0d47fc3e6d5ea0504092ce646890700939851adb49371e183b3b7",
     "examples/evidence.example.json": "ac34484ff7b51103da08ddec60367ea61fc09eb152c325afee77d4b176f1a2c9",
     "requirements/requirements.json": "02c69563c9933bc032fbe042dcb1d1a234b0801476182cb32f41f20a68578f0e",
     "requirements/requirements.schema.json": "8b16f15fd14f8b27f58f242acb71bb7c313f28d22014b5be00b72cbc469f9276",
@@ -10,6 +10,6 @@
     "tooling/test/validate-planning.test.mjs": "d04e7950ecea6cfa2779d0887e635e43a91eb55dd1003f56b95f5b8f0c7be24f",
     "tooling/validate-planning.mjs": "0d7c8a6f7de91e4ba06c39a9606f682ad66c078268a64febad6e0169c797f4be",
     "verification/evidence.schema.json": "ae2e9f5912e03bb6690f227c219c14db12ab1722fbaae989577ca981a56e06c4",
-    "verification/test-catalog.json": "6346c7366c8bb54d1042f9d1b751334f9ba1d3cd0f9e460a311ef11c5150dc85"
+    "verification/test-catalog.json": "61e12eb643188fd89e5ffcf4efaf550f68b0ad333c0c754984b9b544d00f8077"
   }
 }
