@@ -1,0 +1,23 @@
+# Test-only override for task-contract test runs. Never used in production;
+# compose.yaml's own security posture (internal `data` network, no published
+# database ports) is unchanged by this file.
+#
+# It adds a loopback-only published port on postgres so host-run
+# `node --test` suites (which are not on the Compose network) can reach the
+# database. A plain `ports:` addition is not enough: Docker does not bind a
+# published port for a container whose only network is `internal: true`, so
+# postgres is additionally attached to a second, non-internal network
+# (`test-egress`, host-loopback publish only, no other service joins it)
+# purely so the OS-level port forwarding has somewhere to attach.
+#
+# Usage: docker compose -f compose.yaml -f compose.test.yaml up -d --wait postgres
+networks:
+  test-egress: {}
+
+services:
+  postgres:
+    networks:
+      - data
+      - test-egress
+    ports:
+      - "127.0.0.1:55432:5432"
