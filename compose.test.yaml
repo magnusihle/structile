@@ -12,6 +12,9 @@
 #
 # Usage: docker compose -f compose.yaml -f compose.test.yaml up -d --wait postgres
 networks:
+  # com.docker.network.bridge.enable_ip_masquerade: "false" was tried here
+  # (2026-08-25) to close outbound reachability; it does NOT work on Docker
+  # Desktop for Mac (vpnkit ignores it). Don't retry without a Linux host.
   test-egress: {}
 
 services:
