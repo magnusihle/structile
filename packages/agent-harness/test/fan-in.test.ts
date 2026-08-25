@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { setImmediate as yieldToEventLoop } from "node:timers/promises";
-import { fanOutFanIn, hashArtifactContent, type EvidenceArtifact, type FanOutTask } from "../dist/index.js";
+import { fanOutFanIn, FanInError, hashArtifactContent, type EvidenceArtifact, type FanOutTask } from "../dist/index.js";
 
 interface Deferred<T> {
   readonly promise: Promise<T>;
@@ -82,6 +82,37 @@ test("a rejecting task yields a typed failure entry without corrupting the other
   assert.equal(result.failures.length, 1);
   assert.equal(result.failures[0]!.taskId, "task-b");
   assert.match(result.failures[0]!.error, /verifier crashed/);
+});
+
+test("a run() that throws synchronously is normalized to a typed failure, not a crash", async () => {
+  const tasks: FanOutTask[] = [
+    { taskId: "task-a", run: async () => [{ name: "report.json", sha256: hashArtifactContent("ok") }] },
+    // Deliberately not `async`: this throws during the synchronous call to run(), before any
+    // promise machinery is involved, unlike the auto-wrapped `async () => { throw ... }` case.
+    { taskId: "task-b", run: (): Promise<readonly EvidenceArtifact[]> => { throw new Error("verifier crashed synchronously"); } }
+  ];
+  const result = await fanOutFanIn(tasks);
+  assert.deepEqual(result.succeededTaskIds, ["task-a"]);
+  assert.deepEqual(result.artifacts, [{ name: "report.json", sha256: hashArtifactContent("ok") }]);
+  assert.equal(result.failures.length, 1);
+  assert.equal(result.failures[0]!.taskId, "task-b");
+  assert.match(result.failures[0]!.error, /verifier crashed synchronously/);
+});
+
+test("duplicate task ids reject the call before any task runs", async () => {
+  let aInvoked = false;
+  let bInvoked = false;
+  const tasks: FanOutTask[] = [
+    { taskId: "task-a", run: async () => { aInvoked = true; return [{ name: "report.json", sha256: hashArtifactContent("ok") }]; } },
+    { taskId: "task-a", run: async () => { bInvoked = true; return [{ name: "other.json", sha256: hashArtifactContent("also ok") }]; } }
+  ];
+  await assert.rejects(fanOutFanIn(tasks), (error: unknown) => {
+    assert.ok(error instanceof FanInError);
+    assert.deepEqual(error.duplicateTaskIds, ["task-a"]);
+    return true;
+  });
+  assert.equal(aInvoked, false);
+  assert.equal(bInvoked, false);
 });
 
 test("merge is deterministic under true concurrency across many runs", async () => {

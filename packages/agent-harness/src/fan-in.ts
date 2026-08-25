@@ -31,6 +31,17 @@ export interface FanInResult {
   readonly failures: readonly FanInFailure[];
 }
 
+/** The task set itself is invalid (e.g. duplicate task ids), so no task was run. */
+export class FanInError extends Error {
+  readonly duplicateTaskIds: readonly string[];
+
+  constructor(duplicateTaskIds: readonly string[]) {
+    super(`duplicate taskId(s): ${duplicateTaskIds.join(", ")}`);
+    this.name = "FanInError";
+    this.duplicateTaskIds = Object.freeze([...duplicateTaskIds]);
+  }
+}
+
 function describeError(reason: unknown): string {
   if (reason instanceof Error) return reason.message;
   return typeof reason === "string" ? reason : JSON.stringify(reason);
@@ -46,11 +57,22 @@ function byTaskId(a: { readonly taskId: string }, b: { readonly taskId: string }
  * the merge is keyed on stable identities (task id, artifact name) rather than arrival order.
  *
  * Two tasks producing an artifact with the same name but different content are reported as a
- * conflict naming both sources instead of one silently overwriting the other. A rejected task is
- * reported as a typed failure alongside the artifacts the remaining tasks produced.
+ * conflict naming both sources instead of one silently overwriting the other. A task whose run()
+ * rejects — or throws synchronously, which is normalized to a rejection before it can escape the
+ * fan-out and abort the rest — is reported as a typed failure alongside the artifacts the
+ * remaining tasks produced. A task set with duplicate task ids is ambiguous, so it fails closed:
+ * fanOutFanIn rejects with a FanInError naming the duplicates before any run() is invoked.
  */
 export async function fanOutFanIn(tasks: readonly FanOutTask[]): Promise<FanInResult> {
-  const settled = await Promise.allSettled(tasks.map((task) => task.run()));
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const task of tasks) {
+    if (seen.has(task.taskId)) duplicates.add(task.taskId);
+    seen.add(task.taskId);
+  }
+  if (duplicates.size > 0) throw new FanInError([...duplicates].sort());
+
+  const settled = await Promise.allSettled(tasks.map((task) => Promise.resolve().then(() => task.run())));
 
   const failures: FanInFailure[] = [];
   const succeededTaskIds: string[] = [];
