@@ -1,0 +1,48 @@
+{
+  "id": "DEL-002-T01",
+  "behavior": "Vendor the canonical mechanical-reproduction checker into core so the protected delivery-guardrails suite finds and exercises it against this candidate.",
+  "gate": "G1",
+  "requirements": [
+    "DEL-002"
+  ],
+  "protectedTests": [
+    "DEL-001"
+  ],
+  "baseCommit": "10f48a072c6cfd0dd582150f475e7e07e0d2bee5",
+  "runnerDigest": "sha256:c3732dc2fe1991f9b26e5107a311744507f8a34e67bb646dcbee9adb4ffd290c",
+  "testSourceDigest": "sha256:215ff9da705bce442553f4a3dede0488320a00ec3433fe3f1912d701b4fec463",
+  "allowedPaths": [
+    "tooling/verify-mechanical.mjs",
+    "language-policy.json",
+    "scripts/validate-language-policy.ts"
+  ],
+  "nonGoals": [
+    "No change to the vendored file's logic: it must stay byte-identical to canonical",
+    "No change to the four already-vendored tools or their pinned hashes",
+    "No edit to delivery/planning-pin.json or delivery/planning-pin.sha256: the pin is protected enforcement surface and lands separately",
+    "No conformance, requirement or catalog edits",
+    "No new dependencies and no network access"
+  ],
+  "commands": [
+    "npm run check"
+  ],
+  "budget": {
+    "maxLines": 150,
+    "maxFiles": 3,
+    "maxMinutes": 60
+  },
+  "policy": {
+    "network": [],
+    "tools": [
+      "git",
+      "node",
+      "npm"
+    ]
+  },
+  "owner": "magnusihle",
+  "escalation": "structile-planning issues, label checkpoint",
+  "localArtifacts": [
+    "artifacts/del-001-unsigned.envelope.json"
+  ],
+  "notes": "Follow-up (ii) of the two named in delivery/gate-evidence.json's G1 note. The canonical implementation merged as structile-planning#17 at ff0f95040db78449769a3c5042b5b9e42efdbd46; this task copies it byte-for-byte and never re-authors it. Two traps a builder must not miss. First, core enforces typescript-only-authored-source, so a new .mjs must be added to BOTH language-policy.json's protectedExceptions AND the hardcoded duplicate in scripts/validate-language-policy.ts, which cross-validate each other in both directions; missing either fails npm run check on the first CI run. Second, the vendored copy SHOULD also be pinned in delivery/planning-pin.json and delivery/planning-pin.sha256 \u2014 without it nothing in core CI or in the DEL-001 suite would notice this copy drifting from canonical, since the suite only does existsSync plus dynamic import against a generic behavioral contract, and the other four vendored tools are pinned for exactly that reason. That pin is deliberately NOT in this contract's allowedPaths: validate-task-contract.mjs refuses delivery/** as protected enforcement surface, because an implementation must never be able to edit its own checker. The pin therefore lands as a separate protected-policy change after this implementation merges \u2014 in that order, since sha256sum -c fails against a checksum for a file that does not exist yet. A pending conformance re-sync of the amended catalog will move testSourceDigest off 215ff9da, re-pinned in one pass across every contract carrying it. The implementation is prepared and locally verified against the merged DEL-001 suite (passes with the file, fails closed on capability-presence without it) and is deliberately not presented until this contract is approved. Separately, runnerDigest carries the attested G0 runner image digest because no G1 runner digest exists yet: the protected G1 workflow builds the image fresh from Containerfile and computes imageDigest from the built image, and conformance src/ and verification/ have grown substantially since the G0 authority commit, so the G1 image's digest will differ. task-ready v1 verifies neither digest, but readiness against a real protected run requires the pinned runner to match, so this field is a placeholder to be re-pinned to the first attested G1 runner digest. Every task contract merged to date carries the same placeholder."
+}
