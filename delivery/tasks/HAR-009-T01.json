@@ -1,0 +1,47 @@
+{
+  "id": "HAR-009-T01",
+  "behavior": "Expose commit-pinned Graphify index evaluation and edge policy from @structile/agent-harness so stale, unverifiable or inferred-only context can never be treated as evidence.",
+  "gate": "G1",
+  "requirements": [
+    "HAR-009"
+  ],
+  "protectedTests": [
+    "HAR-004"
+  ],
+  "baseCommit": "10f48a072c6cfd0dd582150f475e7e07e0d2bee5",
+  "runnerDigest": "sha256:c3732dc2fe1991f9b26e5107a311744507f8a34e67bb646dcbee9adb4ffd290c",
+  "testSourceDigest": "sha256:215ff9da705bce442553f4a3dede0488320a00ec3433fe3f1912d701b4fec463",
+  "allowedPaths": [
+    "packages/agent-harness/src/**",
+    "packages/agent-harness/test/**"
+  ],
+  "nonGoals": [
+    "No Graphify index construction, extraction or indexing service",
+    "No network access and no Graphify API client",
+    "No changes to the adapter, transport or evidence code paths",
+    "No planning, requirement or catalog edits"
+  ],
+  "commands": [
+    "npm run build --workspace @structile/agent-harness",
+    "node --test packages/agent-harness/test/*.test.ts"
+  ],
+  "budget": {
+    "maxLines": 300,
+    "maxFiles": 4,
+    "maxMinutes": 90
+  },
+  "policy": {
+    "network": [],
+    "tools": [
+      "git",
+      "node",
+      "npm"
+    ]
+  },
+  "owner": "magnusihle",
+  "escalation": "structile-planning issues, label checkpoint",
+  "localArtifacts": [
+    "artifacts/har-004-unsigned.envelope.json"
+  ],
+  "notes": "First micro-task under the delivery operating model section 8 step 7: a thin, already-specified G1 behavior chosen to prove the contract/task-ready/verifier loop end to end. The protected HAR-004 suite (structile-conformance#19, merged) already asserts the exact surface: exports evaluateGraphifyIndex, assertEdgeUsable, GRAPHIFY_EXTRACTOR_VERSION and GraphifyPolicyError; a current index is usable context and never evidence; commit, repository, extractor-version and content-hash mismatches are ignored with a recorded reason; a missing index degrades to unusable; INFERRED or malformed edges are refused with GraphifyPolicyError while RESOLVED edges with a source reference are accepted. re-pinned 2026-08-25 after conformance and core both moved: testSourceDigest is the oracle-input digest of structile-conformance main 46c8cf99cbac5d0c87729e08db20bbadbe2bacd0 as computed by the runner itself, the same value the five merged HAR durability contracts carry; a pending conformance re-sync of the amended catalog will move it again, and it is re-pinned then in one pass; runnerDigest is the attested G0 runner image pending a G1 runner attestation, and task-ready v1 does not verify either digest. Separately, runnerDigest carries the attested G0 runner image digest because no G1 runner digest exists yet: the protected G1 workflow builds the image fresh from Containerfile and computes imageDigest from the built image, and conformance src/ and verification/ have grown substantially since the G0 authority commit, so the G1 image's digest will differ. task-ready v1 verifies neither digest, but readiness against a real protected run requires the pinned runner to match, so this field is a placeholder to be re-pinned to the first attested G1 runner digest. Every task contract merged to date carries the same placeholder."
+}
