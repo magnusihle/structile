@@ -1,4 +1,5 @@
 export * from "./contracts.js";
+export * from "./fan-in.js";
 export * from "./spawn-transport.js";
 export * from "./validation.js";
 export * from "./adapters/claude-code.js";
