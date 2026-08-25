@@ -1,0 +1,34 @@
+{
+  "id": "HAR-004-T01",
+  "behavior": "Resume an interrupted agent-harness workflow from its latest PostgreSQL checkpoint after process kill, and persist human interrupt requests so a 24h-simulated delayed approval continues the run with equivalent evidence.",
+  "gate": "G1",
+  "requirements": ["HAR-004"],
+  "protectedTests": ["HAR-002"],
+  "baseCommit": "a1ae0c4865fd2528013df4c07cef5f5eb3728979",
+  "runnerDigest": "sha256:c3732dc2fe1991f9b26e5107a311744507f8a34e67bb646dcbee9adb4ffd290c",
+  "testSourceDigest": "sha256:215ff9da705bce442553f4a3dede0488320a00ec3433fe3f1912d701b4fec463",
+  "allowedPaths": [
+    "packages/agent-harness/src/**",
+    "packages/agent-harness/test/**"
+  ],
+  "nonGoals": [
+    "No initial checkpoint persistence (HAR-003-T01); this task assumes checkpoints already land at each node boundary",
+    "No persistent task queue (HAR-006-T01)",
+    "No fan-out/fan-in of parallel tasks (HAR-005-T01)",
+    "No idempotency ledger (HAR-010-T01)",
+    "No Redis",
+    "No adapter, transport or evidence code path changes",
+    "No planning, requirement or catalog edits"
+  ],
+  "commands": [
+    "STRUCTILE_DEV_POSTGRES_PASSWORD_FILE=\"$PWD/.local/postgres-password\" docker compose up -d --wait postgres",
+    "npm run build --workspace @structile/agent-harness",
+    "node --test packages/agent-harness/test/*.test.ts"
+  ],
+  "budget": { "maxLines": 300, "maxFiles": 5, "maxMinutes": 120 },
+  "policy": { "network": [], "tools": ["git", "node", "npm", "docker"] },
+  "owner": "magnusihle",
+  "escalation": "structile-planning issues, label checkpoint",
+  "localArtifacts": ["artifacts/har-004-resume-interrupt.log"],
+  "notes": "protectedTests HAR-002 is the catalog suite covering HAR-003, HAR-004, HAR-005, HAR-006 and HAR-010 (verification/test-catalog.json); per CP-002's ruling this suite will be re-cut into per-requirement sub-suites, and this contract cites the current catalog entry pending that amendment. runnerDigest is the attested G0 runner image pending a G1 runner attestation; task-ready v1 does not verify runnerDigest or testSourceDigest. testSourceDigest is the oracle-input digest of structile-conformance main 46c8cf99cbac5d0c87729e08db20bbadbe2bacd0, computed by calling the runner's own runnerDigests() in src/evidence.ts directly rather than invented. Depends on HAR-003-T01 landing first: this task assumes the PostgreSQL checkpointer and its pg client dependency already exist in packages/agent-harness/package.json; it adds no new dependency itself, only src/test changes within the existing allowedPaths. Its compose step is adapted from the README's STRUCTILE_DEV_POSTGRES_PASSWORD_FILE convention (postgres service only, detached), not the whole-stack `docker compose up --build --wait` the README documents."
+}
