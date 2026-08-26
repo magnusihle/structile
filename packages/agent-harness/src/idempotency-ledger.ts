@@ -22,11 +22,10 @@ export interface RecordedOutcome<T = unknown> {
 export type LedgerEntry<T = unknown> = PendingClaim | RecordedOutcome<T>;
 
 /**
- * Thrown by runOnce when another caller (concurrent, or a prior attempt that never returned --
- * including one killed mid-effect) already holds the claim on this operation id and no outcome
- * is recorded yet. Whether the external effect actually ran is unknown, so runOnce never
- * guesses: it won't re-run the effect or invent a result. Reconcile out of band, e.g. by polling
- * IdempotencyLedger#get(operationId) until it resolves to "recorded".
+ * Thrown by runOnce when another caller (concurrent, a prior rejected attempt, or one killed
+ * mid-effect) already holds the claim on this operation id and no outcome is recorded. Whether
+ * the external effect ran is unknown, so runOnce never guesses: it won't re-run the effect or
+ * invent a result. Reconcile out of band via IdempotencyLedger#get(operationId).
  */
 export class IdempotencyInDoubtError extends Error {
   readonly operationId: string;
@@ -48,16 +47,14 @@ export class IdempotencyInDoubtError extends Error {
  * including one resuming after the previous process was killed -- can never both execute it.
  *
  * Row lifecycle: (absent) --[claim: INSERT ... ON CONFLICT DO NOTHING]--> pending
- * --[record: UPDATE]--> recorded. Claim and record are each a single atomic statement; no
- * transaction spans the effect itself, since it is an arbitrary external async call and holding
- * a DB transaction open across it would serialize unrelated work behind it. Consequently, a
- * caller that wins the claim but then fails -- effect rejects, throws synchronously, or the
- * process is killed outright -- leaves its row stuck in "pending" forever; runOnce never
- * releases or retries a claim it did not itself just win. That is deliberate: a claimed-but-
- * unrecorded row is exactly the crash-in-doubt case, and the only safe move is to say so
- * (IdempotencyInDoubtError) rather than risk a duplicate effect. Recovering is an out-of-band
- * decision (a human or reconciliation job correcting the row after inspecting the external
- * system) -- runOnce itself never does it.
+ * --[record: UPDATE]--> recorded, each a single atomic statement; no transaction spans the
+ * effect itself, since it is an arbitrary external async call and holding a DB transaction open
+ * across it would serialize unrelated work behind it. A caller that wins the claim but then
+ * fails -- effect rejects, throws synchronously, or the process is killed outright -- leaves its
+ * row stuck in "pending" forever: permanent poisoning by design, since runOnce never releases or
+ * retries a claim it did not itself just win, and a claimed-but-unrecorded row is indistinguishable
+ * from the crash-in-doubt case. Recovering is an out-of-band decision (a human or reconciliation
+ * job correcting the row after inspecting the external system).
  */
 export class IdempotencyLedger {
   constructor(private readonly pool: Pool) {}
@@ -80,15 +77,12 @@ export class IdempotencyLedger {
 
   /**
    * Runs `effect` at most once for a given operationId, ever, across any number of processes and
-   * retries. First caller to claim operationId runs effect(), records its result, and returns
-   * it. Any later caller, once that result is recorded, returns it without invoking effect at
-   * all. A caller that loses the claim race while the winner's effect is not yet recorded
-   * (still running, or the winner died first) throws IdempotencyInDoubtError without invoking
-   * effect -- it never blocks waiting for the winner and never re-runs.
-   *
-   * `result` is serialized with JSON.stringify (same round-trip caveat as
-   * PostgresCheckpointer#saveCheckpoint: undefined becomes null, Dates become ISO strings,
-   * numbers are JS doubles).
+   * retries. Winner of the claim runs effect(), records its result, and returns it. A later
+   * caller, once that result is recorded, returns it without invoking effect. A caller that
+   * loses the claim race while the winner's outcome is not yet recorded -- still running, or the
+   * winner rejected/crashed -- throws IdempotencyInDoubtError without invoking effect; never
+   * blocks and never re-runs. `result` is JSON.stringify'd (same round-trip caveat as
+   * PostgresCheckpointer#saveCheckpoint).
    */
   async runOnce<T>(operationId: string, effect: () => Promise<T>): Promise<T> {
     const claim = await this.pool.query(
@@ -99,9 +93,8 @@ export class IdempotencyLedger {
     );
 
     if (claim.rowCount === 0) {
+      // entry cannot be null: the INSERT above just proved a row exists, and nothing deletes rows.
       const entry = await this.get<T>(operationId);
-      // entry cannot be null here: the INSERT above just proved a row exists for this id, and
-      // no code path deletes rows.
       if (entry?.status === "recorded") return entry.result;
       throw new IdempotencyInDoubtError(operationId);
     }

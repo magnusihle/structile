@@ -35,7 +35,6 @@ test("first runOnce executes and records; a second call with the same id does no
 
   const first = await ledger.runOnce(operationId, effect);
   const second = await ledger.runOnce(operationId, effect);
-
   assert.equal(invocations, 1, "effect must run exactly once");
   assert.deepEqual(first, { branch: "feature/x", invocation: 1 });
   assert.deepEqual(second, { branch: "feature/x", invocation: 1 }, "second call returns the recorded result, not a fresh invocation");
@@ -100,10 +99,8 @@ test("concurrency: two pools racing runOnce on the same id run the effect exactl
 
 test("crash-in-window: a claim with no recorded outcome yields the documented in-doubt semantics", { skip }, async () => {
   const operationId = `op:${randomUUID()}`;
-
-  // Simulate a process that claimed the operation and was killed before it could record an
-  // outcome -- i.e. exactly the row shape runOnce's own claim step produces, written directly so
-  // no effect ever actually ran.
+  // Simulate a process killed before it could record an outcome: the row shape runOnce's own
+  // claim step produces, written directly so no effect ever actually ran.
   const rawPool = new Pool(readPostgresConnectionConfig());
   const bootstrapLedger = await freshLedger();
   await bootstrapLedger.close();
@@ -127,6 +124,18 @@ test("crash-in-window: a claim with no recorded outcome yields the documented in
   } finally {
     await resumed.close();
   }
+});
+
+test("winner's effect rejecting leaves the claim pending; a later runOnce is in-doubt, not re-invoked", { skip }, async () => {
+  const operationId = `op:${randomUUID()}`;
+  const ledger = await freshLedger();
+  let invocations = 0;
+  const boom = new Error("external effect failed");
+  await assert.rejects(() => ledger.runOnce(operationId, async () => { invocations += 1; throw boom; }), (e: unknown) => e === boom);
+  assert.equal((await ledger.get(operationId))?.status, "pending", "a rejected effect leaves the row pending, not released");
+  await assert.rejects(() => ledger.runOnce(operationId, async () => { invocations += 1; return "no"; }), IdempotencyInDoubtError);
+  assert.equal(invocations, 1, "the effect is never re-invoked once its first attempt has rejected");
+  await ledger.close();
 });
 
 test("distinct operation ids run independently", { skip }, async (t) => {
