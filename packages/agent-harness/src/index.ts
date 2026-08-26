@@ -1,6 +1,7 @@
 export * from "./checkpointer.js";
 export * from "./contracts.js";
 export * from "./fan-in.js";
+export * from "./idempotency-ledger.js";
 export * from "./spawn-transport.js";
 export * from "./task-queue.js";
 export * from "./validation.js";
