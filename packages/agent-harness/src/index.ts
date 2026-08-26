@@ -1,3 +1,4 @@
+export * from "./checkpointer.js";
 export * from "./contracts.js";
 export * from "./fan-in.js";
 export * from "./spawn-transport.js";
