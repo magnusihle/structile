@@ -1,0 +1,25 @@
+{
+  "id": "OSS-003-T01",
+  "behavior": "Record third-party notices for the pg driver and its transitive dependencies in THIRD_PARTY_NOTICES.md so the protected supply-chain suite's OSS-003 notice audit passes against this candidate.",
+  "gate": "G1",
+  "requirements": ["OSS-003"],
+  "protectedTests": ["SEC-005"],
+  "baseCommit": "6e7a859c77c00c2ae411da9a32900403f4fa720c",
+  "runnerDigest": "sha256:c3732dc2fe1991f9b26e5107a311744507f8a34e67bb646dcbee9adb4ffd290c",
+  "testSourceDigest": "sha256:afadc6726f0eef68d05bcee1193f42978a12310afaf993370bea430c4adf772a",
+  "allowedPaths": ["THIRD_PARTY_NOTICES.md"],
+  "nonGoals": [
+    "No dependency is added, removed, upgraded or vendored: this records what the lockfile already distributes",
+    "No SBOM generator, license scanner or new tooling",
+    "No change to NOTICE, which already delegates to THIRD_PARTY_NOTICES.md",
+    "No conformance, requirement or catalog edits",
+    "No new dependencies and no network access"
+  ],
+  "commands": ["npm run check"],
+  "budget": {"maxLines": 60, "maxFiles": 1, "maxMinutes": 45},
+  "policy": {"network": [], "tools": ["git", "node", "npm"]},
+  "owner": "magnusihle",
+  "escalation": "structile-planning issues, label checkpoint",
+  "localArtifacts": ["artifacts/sec-005-unsigned.envelope.json"],
+  "notes": "Found by a local unsigned dry run of every catalogued G1 suite against core main 6e7a859 (informative only, never evidence). SEC-005 fails its OSS-003 notice audit with fourteen findings: pg, pg-cloudflare, pg-connection-string, pg-int8, pg-pool, pg-protocol, pg-types, pgpass, postgres-array, postgres-bytea, postgres-date, postgres-interval, split2 and xtend are distributed components with no third-party notice. The cause is ordering, not oversight: pg@8.23.0 entered the dependency tree in 743659c (HAR-003-T01, the PostgreSQL checkpointer), and the SEC-005 suite merged afterwards as structile-conformance 20ca0d3, so the suite has never once run against a candidate carrying pg. THIRD_PARTY_NOTICES.md still lists only the G0 set. The oracle is supply-chain-audit.ts auditNotices, which takes every SBOM package marked distributed and requires noticesDocument(notices, name) to find the bare component name delimited by a non-alphanumeric character before and a non-lowercase character after, so a table row per component satisfies it; the implementation must record each component's real license rather than pad the file to match a substring. OSS-003 is catalogued at G0 with waiverPolicy never, but no G0 evidence is invalidated: the G0 suite that verifies it, OSS-001, still passes against this candidate, and the G0 gate passed against candidate 545a7664 which predates pg. It is the G1 suite SEC-005 that catches this, which is why the contract is gated G1. runnerDigest carries the attested G0 runner image digest because no G1 runner digest exists yet; task-ready v1 verifies neither digest. testSourceDigest is the oracle-input digest of structile-conformance main f947e786353072ec5e6751e211c46daf06b05c39."
+}
